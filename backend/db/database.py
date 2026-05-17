@@ -5,10 +5,11 @@ from config import get_settings
 settings = get_settings()
 
 engine = create_async_engine(
-    settings.database_url,
-    pool_size=10,
-    max_overflow=20,
+    settings.db_url,
+    pool_size=5,
+    max_overflow=10,
     echo=settings.is_dev,
+    connect_args={"ssl": "require"},
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)

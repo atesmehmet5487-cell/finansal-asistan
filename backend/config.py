@@ -32,6 +32,25 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str
 
+    @property
+    def db_url(self) -> str:
+        # Supabase pooler URL'si DNS çözmezse direkt bağlantıya geç
+        url = self.database_url
+        if "pooler.supabase.com" in url:
+            # aws-X-REGION.pooler.supabase.com → db.PROJECT.supabase.co
+            import re
+            m = re.search(r"postgres\.([a-z]+):", url)
+            if m:
+                project = m.group(1)
+                url = re.sub(
+                    r"@[^/]+\.pooler\.supabase\.com:\d+",
+                    f"@db.{project}.supabase.co:5432",
+                    url,
+                )
+                # asyncpg direkt bağlantıda user postgres olmalı
+                url = url.replace(f"postgres.{project}:", "postgres:")
+        return url
+
     # Uygulama
     app_env: str = "development"
     app_secret_key: str = "change_me"
