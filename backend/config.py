@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     tcmb_evds_key: str = ""
     tcmb_evds_url: str = "https://evds2.tcmb.gov.tr/service/evds"
 
+    # Google Takvim (gizli iCal URL)
+    google_calendar_ical_url: str = ""
+
     # Piyasa
     metals_api_key: str = ""
 

@@ -50,6 +50,8 @@ const SEP = <span style={{ color: "var(--os-line-2)" }}> // </span>;
 export default function Dashboard() {
   const [prices, setPrices]     = useState<Record<string, any>>({});
   const [news, setNews]         = useState<any[]>([]);
+  const [calEvents, setCalEvents] = useState<any[]>([]);
+  const [calConfigured, setCalConfigured] = useState(true);
   const [clock, setClock]       = useState({ h: "00", m: "00", s: "00" });
   const [now, setNow]           = useState(new Date());
   const [loading, setLoading]   = useState(true);
@@ -99,6 +101,22 @@ export default function Dashboard() {
     };
     tick();
     const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Takvim etkinlikleri (ayrı fetch, 30dk cache)
+  useEffect(() => {
+    fetch(`${API}/api/v1/calendar/events?days=7`)
+      .then(r => r.json())
+      .then(d => { setCalEvents(d.events || []); setCalConfigured(d.configured ?? true); })
+      .catch(() => {});
+    // Her 30 dakikada bir yenile
+    const id = setInterval(() => {
+      fetch(`${API}/api/v1/calendar/events?days=7`)
+        .then(r => r.json())
+        .then(d => { setCalEvents(d.events || []); setCalConfigured(d.configured ?? true); })
+        .catch(() => {});
+    }, 30 * 60 * 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -416,6 +434,57 @@ export default function Dashboard() {
               <div style={{ fontFamily: "var(--os-mono)", fontSize: 10, fontWeight: 600, marginTop: 1 }}>%{r.pct}</div>
             </div>
           ))}
+        </div>
+
+        {/* ── TAKVİM HATIRLATICI ── */}
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--os-line)", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+          <div className="card-head" style={{ marginBottom: 6, flexShrink: 0 }}>
+            <span className="eyebrow"><b>📅</b> TAKVİM</span>
+            <span className="eyebrow">{MONTH_NAMES[now.getMonth()].slice(0,3).toUpperCase()} {now.getDate()}</span>
+          </div>
+          {!calConfigured ? (
+            <div style={{ fontFamily: "var(--os-mono)", fontSize: 9, color: "var(--os-muted)", lineHeight: 1.6 }}>
+              Railway'de <b style={{ color: "var(--os-ink)" }}>GOOGLE_CALENDAR_ICAL_URL</b> env değişkenini ekleyin.
+            </div>
+          ) : calEvents.length === 0 ? (
+            <div style={{ fontFamily: "var(--os-mono)", fontSize: 9.5, color: "var(--os-muted)", textAlign: "center", margin: "auto" }}>
+              Yaklaşan etkinlik yok
+            </div>
+          ) : (
+            <ul style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
+              {calEvents.slice(0, 8).map((ev, i) => {
+                const isToday = ev.days_from_now === 0;
+                const isTomorrow = ev.days_from_now === 1;
+                const dayLabel = isToday ? "BUGÜN" : isTomorrow ? "YARIN" : `${ev.days_from_now}G`;
+                const isPayment = /ödeme|fatura|aidat|kira|borç|taksit|payment|bill/i.test(ev.title + ev.description);
+                return (
+                  <li key={i} style={{
+                    display: "grid", gridTemplateColumns: "42px 1fr auto", gap: 6, alignItems: "flex-start",
+                    padding: "5px 7px", borderRadius: 4,
+                    background: isToday ? "rgba(194,65,12,0.06)" : "var(--os-page)",
+                    border: `1px solid ${isToday ? "rgba(194,65,12,0.2)" : "var(--os-line)"}`,
+                  }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--os-mono)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", color: isToday ? "var(--os-accent)" : "var(--os-muted)", letterSpacing: "0.3px" }}>{dayLabel}</div>
+                      {ev.time && <div style={{ fontFamily: "var(--os-mono)", fontSize: 9, color: "var(--os-ink-2)", marginTop: 1 }}>{ev.time}</div>}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--os-ink)", display: "flex", alignItems: "center", gap: 4 }}>
+                        {isPayment && <span style={{ color: "#D97706", fontSize: 9 }}>₺</span>}
+                        {ev.title}
+                      </div>
+                      {ev.description && (
+                        <div style={{ fontFamily: "var(--os-mono)", fontSize: 8.5, color: "var(--os-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.description}</div>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: "var(--os-mono)", fontSize: 8, color: ev.all_day ? "var(--os-muted)" : "var(--os-ink-2)", flexShrink: 0 }}>
+                      {ev.all_day ? "tgn" : ""}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </section>
 

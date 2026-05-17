@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import search, assets, news, watchlist, macro
+from api.routes import search, assets, news, watchlist, macro, calendar
 from api.websocket import router as ws_router
 from config import get_settings
 import asyncio
@@ -70,6 +70,7 @@ app.include_router(assets.router, prefix="/api/v1", tags=["assets"])
 app.include_router(news.router, prefix="/api/v1", tags=["news"])
 app.include_router(watchlist.router, prefix="/api/v1", tags=["watchlist"])
 app.include_router(macro.router, prefix="/api/v1", tags=["macro"])
+app.include_router(calendar.router, prefix="/api/v1", tags=["calendar"])
 app.include_router(ws_router, tags=["websocket"])
 
 

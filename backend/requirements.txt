@@ -36,6 +36,10 @@ apscheduler==3.10.4
 # Telegram
 python-telegram-bot==21.9
 
+# Takvim
+icalendar==6.1.3
+recurring-ical-events==3.5.1
+
 # Yardımcı
 python-dotenv==1.0.1
 pydantic-settings==2.7.0
