@@ -9,68 +9,60 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          primary: "#0A0F1E",
-          secondary: "#111827",
-          card: "#141E2E",
+          primary:   "#ECE4D0",
+          secondary: "#E8DEC8",
+          card:      "#F4ECD6",
         },
         border: {
-          DEFAULT: "#1E2A3A",
-          accent: "#2A3F5F",
+          DEFAULT: "#D4CAB4",
+          accent:  "#B8A98A",
         },
         accent: {
-          cyan: "#00D4FF",
-          "cyan-dim": "#00D4FF33",
+          cyan:       "#C2410C",
+          "cyan-dim": "#C2410C22",
         },
         positive: {
-          DEFAULT: "#00FF94",
-          dim: "#00FF9420",
+          DEFAULT: "#059669",
+          dim:     "#05966920",
         },
         negative: {
-          DEFAULT: "#FF4545",
-          dim: "#FF454520",
+          DEFAULT: "#DC2626",
+          dim:     "#DC262620",
         },
         neutral: {
-          gold: "#FFB800",
-          "gold-dim": "#FFB80020",
+          gold:      "#D97706",
+          "gold-dim": "#D9770620",
         },
         text: {
-          primary: "#E2E8F0",
-          secondary: "#94A3B8",
-          muted: "#475569",
+          primary:   "#1B1814",
+          secondary: "#4A4036",
+          muted:     "#8C8270",
         },
       },
       fontFamily: {
-        mono: ["JetBrains Mono", "Fira Code", "monospace"],
-        sans: ["Inter", "system-ui", "sans-serif"],
+        mono:  ["JetBrains Mono", "ui-monospace", "monospace"],
+        sans:  ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+        serif: ["Instrument Serif", "Georgia", "serif"],
       },
       animation: {
-        "price-up": "priceFlash 0.6s ease-out",
+        "price-up":   "priceFlashGreen 0.6s ease-out",
         "price-down": "priceFlashRed 0.6s ease-out",
-        "slide-in": "slideIn 0.3s ease-out",
-        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "glow": "glow 2s ease-in-out infinite alternate",
+        "slide-in":   "slideIn 0.3s ease-out",
+        "pulse-slow": "pulse 3s cubic-bezier(0.4,0,0.6,1) infinite",
       },
       keyframes: {
-        priceFlash: {
-          "0%": { backgroundColor: "#00FF9433" },
+        priceFlashGreen: {
+          "0%":   { backgroundColor: "rgba(5,150,105,0.2)" },
           "100%": { backgroundColor: "transparent" },
         },
         priceFlashRed: {
-          "0%": { backgroundColor: "#FF454533" },
+          "0%":   { backgroundColor: "rgba(220,38,38,0.2)" },
           "100%": { backgroundColor: "transparent" },
         },
         slideIn: {
-          "0%": { opacity: "0", transform: "translateY(-8px)" },
+          "0%":   { opacity: "0", transform: "translateY(-8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        glow: {
-          "0%": { boxShadow: "0 0 5px #00D4FF33" },
-          "100%": { boxShadow: "0 0 20px #00D4FF66, 0 0 40px #00D4FF22" },
-        },
-      },
-      backgroundImage: {
-        "grid-pattern": "radial-gradient(circle, #1E2A3A 1px, transparent 1px)",
-        "hero-gradient": "radial-gradient(ellipse at top, #0F1F3D 0%, #0A0F1E 60%)",
       },
     },
   },

@@ -66,7 +66,7 @@ export default function AssetPage() {
   const comments = sentiment?.top_comments || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 0" }}>
       {/* Back + Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

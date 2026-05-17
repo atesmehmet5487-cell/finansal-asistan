@@ -26,7 +26,7 @@ export default function NewsPage() {
   }, [category]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 0" }}>
       <div className="flex items-center gap-2">
         <Newspaper className="w-5 h-5 text-accent-cyan" />
         <h1 className="text-xl font-bold text-text-primary">Haber Merkezi</h1>
