@@ -29,13 +29,14 @@ class Settings(BaseSettings):
     metals_api_key: str = ""
 
     # Veritabanı
-    database_url: str
+    database_url: str = ""
+    supabase_url: str = ""
     redis_url: str
 
     @property
     def db_url(self) -> str:
-        # Supabase pooler URL'si DNS çözmezse direkt bağlantıya geç
-        url = self.database_url
+        # SUPABASE_URL öncelikli, yoksa DATABASE_URL kullan
+        url = self.supabase_url or self.database_url
         if "pooler.supabase.com" in url:
             # aws-X-REGION.pooler.supabase.com → db.PROJECT.supabase.co
             import re
