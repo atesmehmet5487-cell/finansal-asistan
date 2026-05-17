@@ -4,6 +4,7 @@ from cache.redis_client import cache_get, cache_set, TTL
 router = APIRouter()
 
 KNOWN_SYMBOLS = {
+    # Büyük Cap / BIST 30
     "ASELS": "Aselsan Elektronik",
     "THYAO": "Türk Hava Yolları",
     "GARAN": "Garanti BBVA",
@@ -22,15 +23,60 @@ KNOWN_SYMBOLS = {
     "FROTO": "Ford Otosan",
     "DOHOL": "Doğan Holding",
     "TTKOM": "Türk Telekom",
-    "PGSUS": "Pegasus",
-    "VESTL": "Vestel",
+    "PGSUS": "Pegasus Hava Yolları",
+    "VESTL": "Vestel Elektronik",
+    # Bankacılık
+    "YKBNK": "Yapı ve Kredi Bankası",
+    "VAKBN": "Vakıfbank",
+    "HALKB": "Halkbank",
+    "DENIZ": "Denizbank",
+    "QNBFB": "QNB Finansbank",
+    # Enerji & Sanayi
+    "PETKM": "Petkim Petrokimya",
+    "AKSEN": "Akenerji Elektrik",
+    "ODAS": "Odaş Elektrik",
+    "ENKAI": "Enka İnşaat",
+    "TKFEN": "Tekfen Holding",
+    "AEFES": "Anadolu Efes",
+    "GUBRF": "Gübre Fabrikaları",
+    "BRSAN": "Borusan Mannesmann",
+    "ISDMR": "İskenderun Demir Çelik",
+    # GYO & Finans
+    "EKGYO": "Emlak Konut GYO",
+    "TRGYO": "Torunlar GYO",
+    "ZRGYO": "Ziraat GYO",
+    "GLYHO": "Global Yatırım Holding",
+    "ALARK": "Alarko Holding",
+    # Tüketim & Perakende
+    "SOKM": "Şok Marketler",
+    "MAVI": "Mavi Giyim",
+    "ADESE": "Adese AVM",
+    "ULKER": "Ülker Bisküvi",
+    "CCOLA": "Coca-Cola İçecek",
+    # Turizm & Ulaştırma
+    "TAVHL": "TAV Havalimanları",
+    "OTKAR": "Otokar",
+    # Madencilik
+    "KOZAL": "Koza Altın",
+    "KOZAA": "Koza Anadolu Maden",
+    # Teknoloji & Diğer
+    "LOGO": "Logo Yazılım",
+    "NETAS": "Netaş Telekomunikasyon",
+    "MPARK": "MLP Sağlık Hizmetleri",
+    "SASA": "Sasa Polyester",
+    "CIMSA": "Çimsa Çimento",
+    "KORDS": "Kordsa Teknik Tekstil",
+    "BERA": "Bera Holding",
+    "IHAAS": "İhlas Holding A",
+    # Endeksler
     "BIST100": "BIST 100 Endeksi",
     "BIST30": "BIST 30 Endeksi",
-    "ALTIN": "Altın",
-    "GUMUS": "Gümüş",
+    # Emtia & Döviz
+    "ALTIN": "Altın (XAU/USD)",
+    "GUMUS": "Gümüş (XAG/USD)",
     "PETROL": "Ham Petrol (Brent)",
-    "DOLAR": "ABD Doları",
-    "EURO": "Euro",
+    "DOLAR": "ABD Doları (USD/TRY)",
+    "EURO": "Euro (EUR/TRY)",
     "BTC": "Bitcoin",
     "ETH": "Ethereum",
 }

@@ -25,7 +25,26 @@ export default function AssetPage() {
   const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("teknik");
+  const [watchlist, setWatchlist] = useState<string[]>([]);
   const { lastMessage } = useWebSocket(`${API.replace("http", "ws")}/ws/live`);
+
+  useEffect(() => {
+    try {
+      setWatchlist(JSON.parse(localStorage.getItem("watchlist") || "[]"));
+    } catch { setWatchlist([]); }
+  }, []);
+
+  const isWatching = watchlist.includes(symbol);
+
+  const toggleWatch = () => {
+    setWatchlist(prev => {
+      const next = prev.includes(symbol)
+        ? prev.filter(s => s !== symbol)
+        : [...prev, symbol];
+      localStorage.setItem("watchlist", JSON.stringify(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,9 +97,16 @@ export default function AssetPage() {
             <p className="text-text-secondary text-sm">BIST</p>
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-text-secondary hover:border-accent-cyan hover:text-accent-cyan transition-all text-sm">
+        <button
+          onClick={toggleWatch}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all text-sm ${
+            isWatching
+              ? "border-accent-cyan text-accent-cyan bg-accent-cyan/5"
+              : "border-border text-text-secondary hover:border-accent-cyan hover:text-accent-cyan"
+          }`}
+        >
           <Bell className="w-4 h-4" />
-          İzlemeye Ekle
+          {isWatching ? "İzlemeden Çıkar" : "İzlemeye Ekle"}
         </button>
       </div>
 

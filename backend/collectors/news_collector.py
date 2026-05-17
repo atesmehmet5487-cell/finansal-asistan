@@ -14,6 +14,8 @@ RSS_FEEDS = [
     {"name": "Investing.com TR", "url": "https://tr.investing.com/rss/news.rss", "importance": "HIGH"},
     {"name": "Finansgundem", "url": "https://www.finansgundem.com/rss/son-haberler", "importance": "MEDIUM"},
     {"name": "Reuters TR", "url": "https://tr.reuters.com/rssFeed/topNews", "importance": "HIGH"},
+    {"name": "BorsaGündem", "url": "https://www.borsagundem.com.tr/rss", "importance": "HIGH"},
+    {"name": "Mynet Son Dakika", "url": "https://www.mynet.com/haber/rss/sondakika", "importance": "MEDIUM"},
 ]
 
 

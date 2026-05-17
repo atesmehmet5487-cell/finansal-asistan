@@ -62,9 +62,25 @@ export default function Dashboard() {
       return saved ? JSON.parse(saved) : DEFAULT_BIST;
     } catch { return DEFAULT_BIST; }
   });
+  const [watchlist, setWatchlist] = useState<string[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [addInput, setAddInput] = useState("");
   const [addError, setAddError] = useState("");
+
+  // Watchlist'i localStorage'dan oku
+  useEffect(() => {
+    try {
+      setWatchlist(JSON.parse(localStorage.getItem("watchlist") || "[]"));
+    } catch { setWatchlist([]); }
+    // localStorage güncellendiğinde yenile (diğer tab'dan)
+    const handler = (e: StorageEvent) => {
+      if (e.key === "watchlist") {
+        try { setWatchlist(JSON.parse(e.newValue || "[]")); } catch {}
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
   const { lastMessage } = useWebSocket(`${API.replace("http", "ws")}/ws/live`);
 
@@ -88,7 +104,7 @@ export default function Dashboard() {
 
   // Fiyat çekimi
   const fetchPrices = useCallback(async () => {
-    const all = [...new Set([...bistSymbols, ...MARKET_SYMBOLS])];
+    const all = [...new Set([...bistSymbols, ...MARKET_SYMBOLS, ...watchlist])];
     try {
       const [newsRes, ...assetRes] = await Promise.all([
         fetch(`${API}/api/v1/news/feed?category=all&limit=30`).then(r => r.json()).catch(() => ({ news: [] })),
@@ -107,7 +123,7 @@ export default function Dashboard() {
     // Fiyatlar null ise 60 saniyede bir yeniden dene
     const id = setInterval(fetchPrices, 60_000);
     return () => clearInterval(id);
-  }, [fetchPrices]);
+  }, [fetchPrices, watchlist]);
 
   // WebSocket güncellemeleri
   useEffect(() => {
@@ -427,41 +443,72 @@ export default function Dashboard() {
       {/* ── 07 ŞU AN İZLENİYOR ── */}
       <section className="card" style={{ gridColumn: "4/10", gridRow: 3 }}>
         <div className="card-head">
-          <span className="eyebrow"><b>07</b>{SEP}ŞU AN İZLENİYOR</span>
-          <span className="eyebrow">BIST · {featured}</span>
+          <span className="eyebrow"><b>07</b>{SEP}İZLEME LİSTEM</span>
+          <span className="eyebrow">{watchlist.length > 0 ? `${watchlist.length} HİSSE` : `BIST · ${featured}`}</span>
         </div>
-        <Link href={`/${featured}`} style={{ textDecoration: "none", color: "inherit", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "64px 1fr", gap: 12, alignItems: "center" }}>
-            <div style={{ width: 64, height: 64, borderRadius: 6, background: isUp(featured) ? "linear-gradient(135deg,#047857,#064E3B)" : "linear-gradient(135deg,#DC2626,#7F1D1D)", display: "grid", placeItems: "center", color: "#fff", fontFamily: "var(--os-serif)", fontSize: 28, boxShadow: "inset 0 0 24px rgba(0,0,0,0.18)" }}>
-              {featured.charAt(0)}
-            </div>
-            <div>
-              <div style={{ fontFamily: "var(--os-serif)", fontSize: 24, lineHeight: 1.1 }}>{featured} <em>Hisse</em></div>
-              <div style={{ fontFamily: "var(--os-mono)", fontSize: 9.5, textTransform: "uppercase", letterSpacing: "0.4px", color: "var(--os-muted)", marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <b style={{ color: "var(--os-ink)" }}>{fmt(gp(featured))} ₺</b>
-                {gc(featured) != null && (
-                  <span style={{ color: isUp(featured) ? "var(--lz-success)" : "var(--lz-danger)", fontWeight: 700 }}>
-                    {isUp(featured) ? "▲" : "▼"} {Math.abs(gc(featured)!).toFixed(2)}%
-                  </span>
-                )}
-                {prices[featured]?.price?.volume && (
-                  <span>· HACİM <b style={{ color: "var(--os-ink)" }}>{(prices[featured].price.volume / 1e6).toFixed(1)}M</b></span>
-                )}
+
+        {watchlist.length === 0 ? (
+          /* İzleme listesi boş → en çok hareket eden hisseyi göster */
+          <Link href={`/${featured}`} style={{ textDecoration: "none", color: "inherit", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "64px 1fr", gap: 12, alignItems: "center" }}>
+              <div style={{ width: 64, height: 64, borderRadius: 6, background: isUp(featured) ? "linear-gradient(135deg,#047857,#064E3B)" : "linear-gradient(135deg,#DC2626,#7F1D1D)", display: "grid", placeItems: "center", color: "#fff", fontFamily: "var(--os-serif)", fontSize: 28, boxShadow: "inset 0 0 24px rgba(0,0,0,0.18)" }}>
+                {featured.charAt(0)}
+              </div>
+              <div>
+                <div style={{ fontFamily: "var(--os-serif)", fontSize: 24, lineHeight: 1.1 }}>{featured} <em>Hisse</em></div>
+                <div style={{ fontFamily: "var(--os-mono)", fontSize: 9.5, textTransform: "uppercase", letterSpacing: "0.4px", color: "var(--os-muted)", marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <b style={{ color: "var(--os-ink)" }}>{fmt(gp(featured))} ₺</b>
+                  {gc(featured) != null && (
+                    <span style={{ color: isUp(featured) ? "var(--lz-success)" : "var(--lz-danger)", fontWeight: 700 }}>
+                      {isUp(featured) ? "▲" : "▼"} {Math.abs(gc(featured)!).toFixed(2)}%
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <svg style={{ marginTop: 10, flex: 1, minHeight: 36, width: "100%" }} viewBox="0 0 600 50" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="spkF" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%"   stopColor={isUp(featured) ? "#047857" : "#DC2626"} stopOpacity="0.3" />
-                <stop offset="100%" stopColor={isUp(featured) ? "#047857" : "#DC2626"} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path d="M0,38 L60,34 L120,30 L180,26 L240,22 L300,18 L360,20 L420,16 L480,12 L540,8 L600,6 L600,50 L0,50 Z" fill="url(#spkF)" />
-            <path d="M0,38 L60,34 L120,30 L180,26 L240,22 L300,18 L360,20 L420,16 L480,12 L540,8 L600,6"
-              fill="none" stroke={isUp(featured) ? "#047857" : "#DC2626"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </Link>
+            <div style={{ fontFamily: "var(--os-mono)", fontSize: 9.5, color: "var(--os-muted)", marginTop: "auto", paddingTop: 12, textAlign: "center" }}>
+              Hisse sayfalarından "İzlemeye Ekle" butonuna basarak buraya ekleyebilirsiniz
+            </div>
+            <svg style={{ marginTop: 10, flex: 1, minHeight: 36, width: "100%" }} viewBox="0 0 600 50" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="spkF" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor={isUp(featured) ? "#047857" : "#DC2626"} stopOpacity="0.3" />
+                  <stop offset="100%" stopColor={isUp(featured) ? "#047857" : "#DC2626"} stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path d="M0,38 L60,34 L120,30 L180,26 L240,22 L300,18 L360,20 L420,16 L480,12 L540,8 L600,6 L600,50 L0,50 Z" fill="url(#spkF)" />
+              <path d="M0,38 L60,34 L120,30 L180,26 L240,22 L300,18 L360,20 L420,16 L480,12 L540,8 L600,6"
+                fill="none" stroke={isUp(featured) ? "#047857" : "#DC2626"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+        ) : (
+          /* İzleme listesi dolu → tüm hisseleri listele */
+          <ul style={{ flex: 1, minHeight: 0, overflow: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+            {watchlist.map((sym, i) => {
+              const price = gp(sym);
+              const pct = gc(sym);
+              const up = (pct ?? 0) >= 0;
+              return (
+                <li key={sym}>
+                  <Link href={`/${sym}`} style={{ textDecoration: "none", display: "grid", gridTemplateColumns: "36px 1fr auto auto", gap: 10, alignItems: "center", padding: "7px 10px", background: "var(--os-page)", borderRadius: 4, border: "1px solid var(--os-line)" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 4, background: up ? "linear-gradient(135deg,#047857,#064E3B)" : "linear-gradient(135deg,#DC2626,#7F1D1D)", display: "grid", placeItems: "center", color: "#fff", fontFamily: "var(--os-serif)", fontSize: 14, flexShrink: 0 }}>
+                      {sym.charAt(0)}
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "var(--os-mono)", fontSize: 11, fontWeight: 700, color: "var(--os-ink)" }}>{sym}</div>
+                    </div>
+                    <div style={{ fontFamily: "var(--os-mono)", fontSize: 12, fontWeight: 600, color: "var(--os-ink)", textAlign: "right" }}>
+                      {loading ? <span style={{ opacity: 0.4 }}>···</span> : fmt(price)}
+                    </div>
+                    <div style={{ fontFamily: "var(--os-mono)", fontSize: 10, color: pct != null ? (up ? "var(--lz-success)" : "var(--lz-danger)") : "var(--os-muted)", textAlign: "right", minWidth: 52 }}>
+                      {pct != null ? `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` : "—"}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
     </div>

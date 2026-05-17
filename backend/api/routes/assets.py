@@ -1,5 +1,7 @@
+import re
+import asyncio
 from fastapi import APIRouter, HTTPException
-from cache.redis_client import cache_get
+from cache.redis_client import cache_get, cache_set, TTL
 from db.database import AsyncSessionLocal
 from db.models import Asset, ConsolidatedAnalysis, TechnicalAnalysis, SentimentAnalysis
 from sqlalchemy import select, desc
@@ -7,6 +9,8 @@ from sqlalchemy import select, desc
 router = APIRouter()
 
 DISCLAIMER = "Bu analiz bilgilendirme amaçlıdır. Yatırım tavsiyesi değildir."
+
+_BIST_RE = re.compile(r'^[A-Z]{3,6}$')
 
 
 @router.get("/assets/{symbol}")
@@ -17,6 +21,18 @@ async def get_asset(symbol: str):
     technical = await cache_get(f"cache:asset:{symbol}:technical")
     sentiment = await cache_get(f"cache:asset:{symbol}:sentiment")
     consolidated = await cache_get(f"cache:asset:{symbol}:consolidated")
+
+    # On-demand fiyat çekimi: cache'de yoksa yfinance'tan al
+    if not price and not consolidated and _BIST_RE.match(symbol):
+        try:
+            from collectors.price_collector import _fetch_price_sync, BIST_SYMBOLS, COMMODITY_SYMBOLS
+            all_syms = {**BIST_SYMBOLS, **COMMODITY_SYMBOLS}
+            yf_sym = all_syms.get(symbol, f"{symbol}.IS")
+            price = await asyncio.to_thread(_fetch_price_sync, symbol, yf_sym)
+            if price:
+                await cache_set(f"cache:price:{symbol}", price, TTL.get("price", 300))
+        except Exception:
+            pass
 
     if not price and not consolidated:
         raise HTTPException(status_code=404, detail=f"{symbol} bulunamadı")

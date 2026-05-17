@@ -8,6 +8,7 @@ import structlog
 log = structlog.get_logger()
 
 BIST_SYMBOLS = {
+    # BIST 30 çekirdeği
     "ASELS": "ASELS.IS", "THYAO": "THYAO.IS", "GARAN": "GARAN.IS",
     "AKBNK": "AKBNK.IS", "ISCTR": "ISCTR.IS", "EREGL": "EREGL.IS",
     "KCHOL": "KCHOL.IS", "SAHOL": "SAHOL.IS", "SISE": "SISE.IS",
@@ -15,6 +16,28 @@ BIST_SYMBOLS = {
     "TCELL": "TCELL.IS", "ARCLK": "ARCLK.IS", "TOASO": "TOASO.IS",
     "FROTO": "FROTO.IS", "DOHOL": "DOHOL.IS", "TTKOM": "TTKOM.IS",
     "PGSUS": "PGSUS.IS", "VESTL": "VESTL.IS",
+    # Bankacılık
+    "YKBNK": "YKBNK.IS", "VAKBN": "VAKBN.IS", "HALKB": "HALKB.IS",
+    "QNBFB": "QNBFB.IS",
+    # Enerji & Sanayi
+    "PETKM": "PETKM.IS", "AKSEN": "AKSEN.IS", "ODAS": "ODAS.IS",
+    "ENKAI": "ENKAI.IS", "TKFEN": "TKFEN.IS", "AEFES": "AEFES.IS",
+    "GUBRF": "GUBRF.IS", "BRSAN": "BRSAN.IS", "ISDMR": "ISDMR.IS",
+    # GYO & Finans
+    "EKGYO": "EKGYO.IS", "TRGYO": "TRGYO.IS", "ZRGYO": "ZRGYO.IS",
+    "GLYHO": "GLYHO.IS", "ALARK": "ALARK.IS",
+    # Tüketim & Perakende
+    "SOKM": "SOKM.IS", "MAVI": "MAVI.IS", "ADESE": "ADESE.IS",
+    "ULKER": "ULKER.IS", "CCOLA": "CCOLA.IS",
+    # Turizm & Ulaştırma
+    "TAVHL": "TAVHL.IS", "OTKAR": "OTKAR.IS",
+    # Madencilik
+    "KOZAL": "KOZAL.IS", "KOZAA": "KOZAA.IS",
+    # Teknoloji & Diğer
+    "LOGO": "LOGO.IS", "NETAS": "NETAS.IS", "MPARK": "MPARK.IS",
+    "SASA": "SASA.IS", "CIMSA": "CIMSA.IS", "KORDS": "KORDS.IS",
+    "BERA": "BERA.IS", "IHAAS": "IHAAS.IS",
+    # Endeksler
     "BIST100": "XU100.IS", "BIST30": "XU030.IS",
 }
 
