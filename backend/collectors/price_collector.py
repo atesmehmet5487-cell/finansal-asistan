@@ -43,6 +43,18 @@ async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
 
         price = _get("last_price")
         prev_close = _get("previous_close")
+
+        # Hafta sonu / piyasa kapalıysa son kapanışa düş
+        if price is None:
+            try:
+                hist = ticker.history(period="5d", interval="1d")
+                if not hist.empty:
+                    price = float(hist["Close"].iloc[-1])
+                    if len(hist) >= 2 and prev_close is None:
+                        prev_close = float(hist["Close"].iloc[-2])
+            except Exception:
+                pass
+
         change_pct = None
         if price and prev_close and prev_close != 0:
             change_pct = round((price - prev_close) / prev_close * 100, 4)
