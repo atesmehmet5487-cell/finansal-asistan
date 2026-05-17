@@ -1,3 +1,4 @@
+import asyncio
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
@@ -28,10 +29,10 @@ COMMODITY_SYMBOLS = {
 }
 
 
-async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
+def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
+    """Senkron yfinance çağrısı — asyncio.to_thread ile çalıştırılır."""
     try:
-        ticker_sym = yf_symbol or symbol
-        ticker = yf.Ticker(ticker_sym)
+        ticker = yf.Ticker(yf_symbol)
         info = ticker.fast_info
 
         def _get(attr):
@@ -44,14 +45,14 @@ async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
         price = _get("last_price")
         prev_close = _get("previous_close")
 
-        # Hafta sonu / piyasa kapalıysa son kapanışa düş
+        # Piyasa kapalıysa (hafta sonu / tatil) son kapanışa düş
         if price is None:
             try:
-                hist = ticker.history(period="5d", interval="1d")
-                if not hist.empty:
-                    price = float(hist["Close"].iloc[-1])
-                    if len(hist) >= 2 and prev_close is None:
-                        prev_close = float(hist["Close"].iloc[-2])
+                df = yf.download(yf_symbol, period="5d", interval="1d", progress=False, auto_adjust=True)
+                if not df.empty:
+                    price = float(df["Close"].iloc[-1])
+                    if len(df) >= 2 and prev_close is None:
+                        prev_close = float(df["Close"].iloc[-2])
             except Exception:
                 pass
 
@@ -75,29 +76,36 @@ async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
         return None
 
 
+async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
+    return await asyncio.to_thread(_fetch_price_sync, symbol, yf_symbol or symbol)
+
+
 async def fetch_ohlcv(symbol: str, period: str = "1y", interval: str = "1d") -> Optional[pd.DataFrame]:
-    try:
-        ticker = yf.Ticker(symbol)
-        df = ticker.history(period=period, interval=interval)
-        if df.empty:
+    def _sync():
+        try:
+            ticker = yf.Ticker(symbol)
+            df = ticker.history(period=period, interval=interval)
+            if df.empty:
+                return None
+            df.index = pd.to_datetime(df.index)
+            return df[["Open", "High", "Low", "Close", "Volume"]].dropna()
+        except Exception as e:
+            log.error("ohlcv_fetch_failed", symbol=symbol, error=str(e))
             return None
-        df.index = pd.to_datetime(df.index)
-        return df[["Open", "High", "Low", "Close", "Volume"]].dropna()
-    except Exception as e:
-        log.error("ohlcv_fetch_failed", symbol=symbol, error=str(e))
-        return None
+
+    return await asyncio.to_thread(_sync)
 
 
 async def fetch_all_prices() -> list[dict]:
-    results = []
+    tasks = []
+    symbols_list = []
+
     for display_name, yf_sym in BIST_SYMBOLS.items():
-        data = await fetch_price(display_name, yf_sym)
-        if data:
-            results.append(data)
-
+        tasks.append(fetch_price(display_name, yf_sym))
+        symbols_list.append(display_name)
     for display_name, yf_sym in COMMODITY_SYMBOLS.items():
-        data = await fetch_price(display_name, yf_sym)
-        if data:
-            results.append(data)
+        tasks.append(fetch_price(display_name, yf_sym))
+        symbols_list.append(display_name)
 
-    return results
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return [r for r in results if isinstance(r, dict)]
