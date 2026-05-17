@@ -83,14 +83,23 @@ async def debug():
     results = {}
     try:
         from cache.redis_client import cache_get
-        val = await cache_get("test:ping")
+        await cache_get("test:ping")
         results["redis"] = "ok"
     except Exception as e:
         results["redis"] = str(e)
     try:
+        import re
+        raw = settings.database_url
+        host = re.search(r"@([^/]+)/", raw)
+        results["db_host"] = host.group(1) if host else "unknown"
+        results["db_url_used"] = settings.db_url[settings.db_url.find("@"):settings.db_url.find("/postgres")]
+    except Exception as e:
+        results["db_url_err"] = str(e)
+    try:
         from db.database import AsyncSessionLocal
+        import sqlalchemy
         async with AsyncSessionLocal() as db:
-            await db.execute(__import__("sqlalchemy").text("SELECT 1"))
+            await db.execute(sqlalchemy.text("SELECT 1"))
         results["db"] = "ok"
     except Exception as e:
         results["db"] = str(e)
