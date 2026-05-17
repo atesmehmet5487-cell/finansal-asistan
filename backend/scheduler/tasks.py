@@ -36,27 +36,28 @@ async def run_news_pipeline():
 
     analyzed = await analyze_news_batch(raw_news)
 
-    async with AsyncSessionLocal() as db:
-        for item in analyzed:
-            existing = await db.execute(select(News).where(News.url == item.get("url")))
-            if existing.scalar_one_or_none():
-                continue
-
-            news = News(
-                title=item.get("title", ""),
-                source=item.get("source", ""),
-                url=item.get("url"),
-                published_at=item.get("published_at"),
-                sentiment_score=item.get("sentiment_score"),
-                sentiment_label=item.get("sentiment_label"),
-                importance=item.get("importance"),
-                categories=item.get("categories", []),
-                summary_tr=item.get("summary_tr"),
-                raw_content=item.get("content", "")[:2000],
-            )
-            db.add(news)
-
-        await db.commit()
+    try:
+        async with AsyncSessionLocal() as db:
+            for item in analyzed:
+                existing = await db.execute(select(News).where(News.url == item.get("url")))
+                if existing.scalar_one_or_none():
+                    continue
+                news = News(
+                    title=item.get("title", ""),
+                    source=item.get("source", ""),
+                    url=item.get("url"),
+                    published_at=item.get("published_at"),
+                    sentiment_score=item.get("sentiment_score"),
+                    sentiment_label=item.get("sentiment_label"),
+                    importance=item.get("importance"),
+                    categories=item.get("categories", []),
+                    summary_tr=item.get("summary_tr"),
+                    raw_content=item.get("content", "")[:2000],
+                )
+                db.add(news)
+            await db.commit()
+    except Exception as e:
+        log.warning("news_db_save_failed", error=str(e))
 
     critical = [n for n in analyzed if n.get("importance") == "CRITICAL"]
     if critical:
@@ -93,21 +94,24 @@ async def run_technical_pipeline():
                 await cache_set(f"cache:asset:{symbol}:technical", result, TTL["technical"])
                 await pubsub_publish("pub:analysis_update", {"symbol": symbol, "type": "technical"})
 
-                async with AsyncSessionLocal() as db:
-                    asset = (await db.execute(select(Asset).where(Asset.symbol == symbol))).scalar_one_or_none()
-                    if asset:
-                        ta_record = TechnicalAnalysis(
-                            asset_id=asset.id,
-                            price_data=result.get("price", {}),
-                            indicators=result.get("indicators", {}),
-                            levels=result.get("levels", {}),
-                            trend=result.get("trend", {}),
-                            signal=result.get("composite_signal"),
-                            confidence=result.get("confidence"),
-                            interpretation_tr=result.get("interpretation_tr"),
-                        )
-                        db.add(ta_record)
-                        await db.commit()
+                try:
+                    async with AsyncSessionLocal() as db:
+                        asset = (await db.execute(select(Asset).where(Asset.symbol == symbol))).scalar_one_or_none()
+                        if asset:
+                            ta_record = TechnicalAnalysis(
+                                asset_id=asset.id,
+                                price_data=result.get("price", {}),
+                                indicators=result.get("indicators", {}),
+                                levels=result.get("levels", {}),
+                                trend=result.get("trend", {}),
+                                signal=result.get("composite_signal"),
+                                confidence=result.get("confidence"),
+                                interpretation_tr=result.get("interpretation_tr"),
+                            )
+                            db.add(ta_record)
+                            await db.commit()
+                except Exception as db_err:
+                    log.warning("technical_db_save_failed", symbol=symbol, error=str(db_err))
         except Exception as e:
             log.error("technical_pipeline_failed", symbol=symbol, error=str(e))
 
