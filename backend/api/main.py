@@ -76,3 +76,22 @@ app.include_router(ws_router, tags=["websocket"])
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/debug")
+async def debug():
+    results = {}
+    try:
+        from cache.redis_client import cache_get
+        val = await cache_get("test:ping")
+        results["redis"] = "ok"
+    except Exception as e:
+        results["redis"] = str(e)
+    try:
+        from db.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            await db.execute(__import__("sqlalchemy").text("SELECT 1"))
+        results["db"] = "ok"
+    except Exception as e:
+        results["db"] = str(e)
+    return results
