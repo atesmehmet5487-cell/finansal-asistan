@@ -1,0 +1,110 @@
+from fastapi import APIRouter, HTTPException
+from cache.redis_client import cache_get
+from db.database import AsyncSessionLocal
+from db.models import Asset, ConsolidatedAnalysis, TechnicalAnalysis, SentimentAnalysis
+from sqlalchemy import select, desc
+
+router = APIRouter()
+
+DISCLAIMER = "Bu analiz bilgilendirme amaçlıdır. Yatırım tavsiyesi değildir."
+
+
+@router.get("/assets/{symbol}")
+async def get_asset(symbol: str):
+    symbol = symbol.upper()
+
+    price = await cache_get(f"cache:price:{symbol}")
+    technical = await cache_get(f"cache:asset:{symbol}:technical")
+    sentiment = await cache_get(f"cache:asset:{symbol}:sentiment")
+    consolidated = await cache_get(f"cache:asset:{symbol}:consolidated")
+
+    if not price and not consolidated:
+        raise HTTPException(status_code=404, detail=f"{symbol} bulunamadı")
+
+    return {
+        "symbol": symbol,
+        "price": price,
+        "technical": technical,
+        "sentiment": sentiment,
+        "consolidated": consolidated,
+        "disclaimer": DISCLAIMER,
+    }
+
+
+@router.get("/assets/{symbol}/technical")
+async def get_technical(symbol: str):
+    symbol = symbol.upper()
+    data = await cache_get(f"cache:asset:{symbol}:technical")
+    if not data:
+        raise HTTPException(status_code=404, detail="Teknik analiz henüz hazır değil")
+    return data
+
+
+@router.get("/assets/{symbol}/news")
+async def get_asset_news(symbol: str, limit: int = 20):
+    symbol = symbol.upper()
+    news_feed = await cache_get("cache:news:feed:latest")
+    if not news_feed:
+        return {"symbol": symbol, "news": []}
+
+    filtered = [
+        n for n in news_feed
+        if symbol in n.get("affected_assets", [])
+    ]
+    return {"symbol": symbol, "news": filtered[:limit]}
+
+
+@router.get("/assets/{symbol}/sentiment")
+async def get_sentiment(symbol: str):
+    symbol = symbol.upper()
+    data = await cache_get(f"cache:asset:{symbol}:sentiment")
+    if not data:
+        return {"symbol": symbol, "data": None, "message": "Yorum verisi henüz toplanmadı"}
+    return data
+
+
+@router.get("/assets/{symbol}/history")
+async def get_history(symbol: str, days: int = 30):
+    symbol = symbol.upper()
+    async with AsyncSessionLocal() as db:
+        asset = (await db.execute(select(Asset).where(Asset.symbol == symbol))).scalar_one_or_none()
+        if not asset:
+            return {"symbol": symbol, "history": []}
+
+        records = (await db.execute(
+            select(ConsolidatedAnalysis)
+            .where(ConsolidatedAnalysis.asset_id == asset.id)
+            .order_by(desc(ConsolidatedAnalysis.generated_at))
+            .limit(days * 3)
+        )).scalars().all()
+
+    history = [
+        {
+            "date": r.generated_at.isoformat(),
+            "composite_score": float(r.composite_score) if r.composite_score else None,
+            "overall_sentiment": r.overall_sentiment,
+        }
+        for r in records
+    ]
+    return {"symbol": symbol, "history": history}
+
+
+@router.get("/trending")
+async def get_trending():
+    from api.routes.search import KNOWN_SYMBOLS
+    trending = []
+    for symbol in list(KNOWN_SYMBOLS.keys())[:15]:
+        price = await cache_get(f"cache:price:{symbol}")
+        consolidated = await cache_get(f"cache:asset:{symbol}:consolidated")
+        if price or consolidated:
+            trending.append({
+                "symbol": symbol,
+                "name": KNOWN_SYMBOLS[symbol],
+                "price": price.get("price") if price else None,
+                "change_pct": price.get("change_pct") if price else None,
+                "composite_score": consolidated.get("composite_score") if consolidated else None,
+                "overall_sentiment": consolidated.get("overall_sentiment") if consolidated else None,
+            })
+
+    trending.sort(key=lambda x: abs(x.get("change_pct") or 0), reverse=True)
+    return {"trending": trending}

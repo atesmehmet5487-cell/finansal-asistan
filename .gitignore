@@ -1,0 +1,13 @@
+.env
+.env.local
+backend/.env
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+node_modules/
+.next/
+*.log
+.DS_Store
+Thumbs.db
+backend/numba/

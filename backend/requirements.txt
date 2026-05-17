@@ -1,0 +1,44 @@
+# Web Framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+
+# Veritabanı
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+
+# Redis
+redis[hiredis]==5.2.1
+
+# AI
+google-generativeai==0.8.3
+
+# Finansal Veri
+yfinance==0.2.50
+pandas==2.2.3
+pandas_ta==0.3.14b0
+numpy==1.26.4
+
+# Haber & HTTP
+httpx==0.28.0
+feedparser==6.0.11
+beautifulsoup4==4.12.3
+lxml==5.3.0
+
+# Sosyal Medya
+tweepy==4.14.0
+praw==7.8.1
+
+# Zamanlayıcı
+apscheduler==3.10.4
+
+# Telegram
+python-telegram-bot==21.9
+
+# Yardımcı
+python-dotenv==1.0.1
+pydantic-settings==2.7.0
+pydantic==2.10.3
+tenacity==9.0.0
+structlog==24.4.0
