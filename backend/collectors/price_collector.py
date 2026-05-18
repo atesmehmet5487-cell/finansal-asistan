@@ -1,4 +1,5 @@
 import asyncio
+import requests
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
@@ -8,7 +9,6 @@ import structlog
 log = structlog.get_logger()
 
 BIST_SYMBOLS = {
-    # BIST 30 çekirdeği
     "ASELS": "ASELS.IS", "THYAO": "THYAO.IS", "GARAN": "GARAN.IS",
     "AKBNK": "AKBNK.IS", "ISCTR": "ISCTR.IS", "EREGL": "EREGL.IS",
     "KCHOL": "KCHOL.IS", "SAHOL": "SAHOL.IS", "SISE": "SISE.IS",
@@ -16,28 +16,20 @@ BIST_SYMBOLS = {
     "TCELL": "TCELL.IS", "ARCLK": "ARCLK.IS", "TOASO": "TOASO.IS",
     "FROTO": "FROTO.IS", "DOHOL": "DOHOL.IS", "TTKOM": "TTKOM.IS",
     "PGSUS": "PGSUS.IS", "VESTL": "VESTL.IS",
-    # Bankacılık
     "YKBNK": "YKBNK.IS", "VAKBN": "VAKBN.IS", "HALKB": "HALKB.IS",
     "QNBFB": "QNBFB.IS",
-    # Enerji & Sanayi
     "PETKM": "PETKM.IS", "AKSEN": "AKSEN.IS", "ODAS": "ODAS.IS",
     "ENKAI": "ENKAI.IS", "TKFEN": "TKFEN.IS", "AEFES": "AEFES.IS",
     "GUBRF": "GUBRF.IS", "BRSAN": "BRSAN.IS", "ISDMR": "ISDMR.IS",
-    # GYO & Finans
     "EKGYO": "EKGYO.IS", "TRGYO": "TRGYO.IS", "ZRGYO": "ZRGYO.IS",
     "GLYHO": "GLYHO.IS", "ALARK": "ALARK.IS",
-    # Tüketim & Perakende
     "SOKM": "SOKM.IS", "MAVI": "MAVI.IS", "ADESE": "ADESE.IS",
     "ULKER": "ULKER.IS", "CCOLA": "CCOLA.IS",
-    # Turizm & Ulaştırma
     "TAVHL": "TAVHL.IS", "OTKAR": "OTKAR.IS",
-    # Madencilik
     "KOZAL": "KOZAL.IS", "KOZAA": "KOZAA.IS",
-    # Teknoloji & Diğer
     "LOGO": "LOGO.IS", "NETAS": "NETAS.IS", "MPARK": "MPARK.IS",
     "SASA": "SASA.IS", "CIMSA": "CIMSA.IS", "KORDS": "KORDS.IS",
     "BERA": "BERA.IS", "IHAAS": "IHAAS.IS",
-    # Endeksler
     "BIST100": "XU100.IS", "BIST30": "XU030.IS",
 }
 
@@ -52,10 +44,30 @@ COMMODITY_SYMBOLS = {
 }
 
 
-def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
-    """Senkron yfinance çağrısı — asyncio.to_thread ile çalıştırılır."""
+def _make_session() -> requests.Session:
+    """Yahoo Finance cookie akışını tamamlayan session."""
+    session = requests.Session()
+    session.headers.update({
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+    })
     try:
-        ticker = yf.Ticker(yf_symbol)
+        session.get("https://finance.yahoo.com", timeout=10)
+    except Exception:
+        pass
+    return session
+
+
+def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
+    try:
+        session = _make_session()
+        ticker = yf.Ticker(yf_symbol, session=session)
         info = ticker.fast_info
 
         def _get(attr):
@@ -68,10 +80,12 @@ def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
         price = _get("last_price")
         prev_close = _get("previous_close")
 
-        # Piyasa kapalıysa (hafta sonu / tatil) son kapanışa düş
         if price is None:
             try:
-                df = yf.download(yf_symbol, period="5d", interval="1d", progress=False, auto_adjust=True)
+                df = yf.download(
+                    yf_symbol, period="5d", interval="1d",
+                    progress=False, auto_adjust=True, session=session
+                )
                 if not df.empty:
                     price = float(df["Close"].iloc[-1])
                     if len(df) >= 2 and prev_close is None:
@@ -106,7 +120,8 @@ async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
 async def fetch_ohlcv(symbol: str, period: str = "1y", interval: str = "1d") -> Optional[pd.DataFrame]:
     def _sync():
         try:
-            ticker = yf.Ticker(symbol)
+            session = _make_session()
+            ticker = yf.Ticker(symbol, session=session)
             df = ticker.history(period=period, interval=interval)
             if df.empty:
                 return None
@@ -121,14 +136,10 @@ async def fetch_ohlcv(symbol: str, period: str = "1y", interval: str = "1d") -> 
 
 async def fetch_all_prices() -> list[dict]:
     tasks = []
-    symbols_list = []
-
     for display_name, yf_sym in BIST_SYMBOLS.items():
         tasks.append(fetch_price(display_name, yf_sym))
-        symbols_list.append(display_name)
     for display_name, yf_sym in COMMODITY_SYMBOLS.items():
         tasks.append(fetch_price(display_name, yf_sym))
-        symbols_list.append(display_name)
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     return [r for r in results if isinstance(r, dict)]
