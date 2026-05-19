@@ -1,7 +1,7 @@
 import re
 import asyncio
 from fastapi import APIRouter, HTTPException
-from cache.redis_client import cache_get, cache_set, TTL
+from cache.redis_client import cache_get, cache_set, cache_delete, TTL
 from db.database import AsyncSessionLocal
 from db.models import Asset, ConsolidatedAnalysis, TechnicalAnalysis, SentimentAnalysis
 from sqlalchemy import select, desc
@@ -131,22 +131,33 @@ async def get_all_prices():
 
 
 async def _trigger_price_fetch(all_syms: dict):
-    """Arka planda fiyat pipeline'ını çalıştırır, endpoint'i bloklamaz."""
-    import asyncio as _asyncio
+    """Arka planda full batch pipeline'ı çalıştırır."""
     try:
-        from collectors.price_collector import _fetch_price_sync
-        # En önemli 10 sembolü önce çek
-        priority = ["BIST100", "DOLAR", "EURO", "ALTIN", "ASELS", "THYAO", "GARAN", "AKBNK", "BTC", "ISCTR"]
-        async def _one(sym: str):
-            yf_sym = all_syms.get(sym)
-            if not yf_sym:
-                return
-            result = await _asyncio.to_thread(_fetch_price_sync, sym, yf_sym)
-            if result and result.get("price"):
-                await cache_set(f"cache:price:{sym}", result, TTL["price"])
-        await _asyncio.gather(*[_one(s) for s in priority if s in all_syms])
+        from scheduler.tasks import run_price_pipeline
+        await run_price_pipeline()
     except Exception:
         pass
+
+
+@router.post("/prices/refresh")
+async def refresh_prices():
+    """Cache'deki null fiyatları temizler ve yeniden çeker."""
+    from collectors.price_collector import BIST_SYMBOLS, COMMODITY_SYMBOLS
+    import asyncio as _asyncio
+
+    all_syms = {**BIST_SYMBOLS, **COMMODITY_SYMBOLS}
+
+    # Null fiyatlı cache kayıtlarını sil
+    deleted = 0
+    for sym in all_syms:
+        val = await cache_get(f"cache:price:{sym}")
+        if val and val.get("price") is None:
+            await cache_delete(f"cache:price:{sym}")
+            deleted += 1
+
+    # Batch pipeline'ı arka planda başlat
+    asyncio.create_task(_trigger_price_fetch(all_syms))
+    return {"status": "refresh_started", "null_entries_cleared": deleted}
 
 
 @router.get("/trending")
