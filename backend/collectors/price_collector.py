@@ -1,5 +1,4 @@
 import asyncio
-import requests
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
@@ -44,30 +43,10 @@ COMMODITY_SYMBOLS = {
 }
 
 
-def _make_session() -> requests.Session:
-    """Yahoo Finance cookie akışını tamamlayan session."""
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-    })
-    try:
-        session.get("https://finance.yahoo.com", timeout=10)
-    except Exception:
-        pass
-    return session
-
-
 def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
+    """Senkron yfinance çağrısı — asyncio.to_thread ile çalıştırılır."""
     try:
-        session = _make_session()
-        ticker = yf.Ticker(yf_symbol, session=session)
+        ticker = yf.Ticker(yf_symbol)
         info = ticker.fast_info
 
         def _get(attr):
@@ -80,12 +59,10 @@ def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
         price = _get("last_price")
         prev_close = _get("previous_close")
 
+        # Piyasa kapalıysa (hafta sonu / tatil) son kapanışa düş
         if price is None:
             try:
-                df = yf.download(
-                    yf_symbol, period="5d", interval="1d",
-                    progress=False, auto_adjust=True, session=session
-                )
+                df = yf.download(yf_symbol, period="5d", interval="1d", progress=False, auto_adjust=True)
                 if not df.empty:
                     price = float(df["Close"].iloc[-1])
                     if len(df) >= 2 and prev_close is None:
@@ -120,8 +97,7 @@ async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
 async def fetch_ohlcv(symbol: str, period: str = "1y", interval: str = "1d") -> Optional[pd.DataFrame]:
     def _sync():
         try:
-            session = _make_session()
-            ticker = yf.Ticker(symbol, session=session)
+            ticker = yf.Ticker(symbol)
             df = ticker.history(period=period, interval=interval)
             if df.empty:
                 return None

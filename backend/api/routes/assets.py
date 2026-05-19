@@ -114,32 +114,39 @@ async def get_all_prices():
     all_syms = {**BIST_SYMBOLS, **COMMODITY_SYMBOLS}
     prices: dict = {}
 
-    # Önce cache'den oku
-    tasks = {sym: cache_get(f"cache:price:{sym}") for sym in all_syms}
-    for sym, coro in tasks.items():
-        val = await coro
-        if val:
+    # Tüm cache anahtarlarını paralel oku
+    cache_results = await _asyncio.gather(
+        *[cache_get(f"cache:price:{sym}") for sym in all_syms],
+        return_exceptions=True
+    )
+    for sym, val in zip(all_syms.keys(), cache_results):
+        if isinstance(val, dict):
             prices[sym] = val
 
-    # Cache'de olmayan sembolleri on-demand paralel çek
-    missing = [s for s in all_syms if s not in prices]
-    if missing:
-        async def _fetch_one(sym: str):
-            yf_sym = all_syms[sym]
-            result = await _asyncio.to_thread(_fetch_price_sync, sym, yf_sym)
-            if result:
-                await cache_set(f"cache:price:{sym}", result, TTL["price"])
-            return sym, result
-
-        from collectors.price_collector import _fetch_price_sync
-        fetched = await _asyncio.gather(*[_fetch_one(s) for s in missing], return_exceptions=True)
-        for item in fetched:
-            if isinstance(item, tuple):
-                sym, val = item
-                if val:
-                    prices[sym] = val
+    # Cache tamamen boşsa (ilk başlatma) scheduler'ı tetikle ama beklemeden dön
+    if not prices:
+        _asyncio.create_task(_trigger_price_fetch(all_syms))
 
     return {"prices": prices, "count": len(prices)}
+
+
+async def _trigger_price_fetch(all_syms: dict):
+    """Arka planda fiyat pipeline'ını çalıştırır, endpoint'i bloklamaz."""
+    import asyncio as _asyncio
+    try:
+        from collectors.price_collector import _fetch_price_sync
+        # En önemli 10 sembolü önce çek
+        priority = ["BIST100", "DOLAR", "EURO", "ALTIN", "ASELS", "THYAO", "GARAN", "AKBNK", "BTC", "ISCTR"]
+        async def _one(sym: str):
+            yf_sym = all_syms.get(sym)
+            if not yf_sym:
+                return
+            result = await _asyncio.to_thread(_fetch_price_sync, sym, yf_sym)
+            if result and result.get("price"):
+                await cache_set(f"cache:price:{sym}", result, TTL["price"])
+        await _asyncio.gather(*[_one(s) for s in priority if s in all_syms])
+    except Exception:
+        pass
 
 
 @router.get("/trending")
