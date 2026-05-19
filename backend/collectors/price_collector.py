@@ -95,7 +95,8 @@ BIST_SYMBOLS = {
 }
 
 COMMODITY_SYMBOLS = {
-    # ALTIN ve GUMUS HaremAltın'dan çekilir (aşağıda)
+    "ALTIN": "GC=F",       # USD/troy oz — sonradan TRY/gram'a çevrilir
+    "GUMUS": "SI=F",       # USD/troy oz — sonradan TRY/gram'a çevrilir
     "PETROL_BRENT": "BZ=F",
     "DOLAR": "USDTRY=X",
     "EURO": "EURTRY=X",
@@ -107,17 +108,6 @@ _YF_CHART = "https://query2.finance.yahoo.com/v8/finance/chart/{symbol}"
 _HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; financial-dashboard/1.0)",
     "Accept": "application/json",
-}
-
-_HAREM_HOME = "https://www.haremaltin.com/"
-_HAREM_AJAX = "https://www.haremaltin.com/dashboard/ajax/doviz"
-_HAREM_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    "X-Requested-With": "XMLHttpRequest",
-    "Referer": "https://www.haremaltin.com/",
-    "Origin": "https://www.haremaltin.com",
-    "Accept": "application/json, text/javascript, */*; q=0.01",
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
 }
 
 
@@ -166,62 +156,6 @@ def _parse_chart(symbol: str, data: dict) -> dict | None:
         return None
 
 
-async def fetch_harem_prices() -> list[dict]:
-    """HaremAltın AJAX endpoint'inden gram altın ve gümüş TRY fiyatlarını çeker."""
-    try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-            # Session cookie için önce ana sayfayı ziyaret et
-            await client.get(_HAREM_HOME, headers={
-                "User-Agent": _HAREM_HEADERS["User-Agent"],
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            })
-            resp = await client.post(_HAREM_AJAX, data={"dil_kodu": "tr"}, headers=_HAREM_HEADERS)
-            resp.raise_for_status()
-            data = resp.json()
-
-        now_ts = datetime.utcnow().isoformat()
-        prices = []
-
-        def _parse_harem(row: dict, symbol: str) -> dict | None:
-            try:
-                satis = float(str(row.get("satis") or "0").replace(",", "."))
-                if not satis:
-                    return None
-                # degisim = yüzdelik değişim, dir = 1 artış / 2 düşüş
-                try:
-                    degisim = float(str(row.get("degisim") or "0").replace(",", "."))
-                    yon = str(row.get("dir") or "0")
-                    change_pct = round(degisim * (-1 if yon == "2" else 1), 4)
-                except Exception:
-                    change_pct = None
-                return {
-                    "symbol": symbol, "price": satis,
-                    "open": None, "high": None, "low": None, "volume": None,
-                    "change_pct": change_pct, "market_cap": None,
-                    "closes": [], "timestamp": now_ts,
-                }
-            except Exception:
-                return None
-
-        if "ALTIN" in data:
-            item = _parse_harem(data["ALTIN"], "ALTIN")
-            if item:
-                prices.append(item)
-
-        for key in ("GUMUSTRY", "GUMUS"):
-            if key in data:
-                item = _parse_harem(data[key], "GUMUS")
-                if item:
-                    prices.append(item)
-                break
-
-        log.info("harem_fetched", count=len(prices))
-        return prices
-    except Exception as e:
-        log.error("harem_fetch_failed", error=str(e))
-        return []
-
-
 async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
     """Tek sembol için asenkron fiyat çekimi."""
     yf_sym = yf_symbol or symbol
@@ -237,21 +171,33 @@ async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
 
 
 async def fetch_all_prices() -> list[dict]:
-    """Tüm sembolleri paralel çağrılarla çeker. ALTIN/GUMUS → HaremAltın, geri kalan → Yahoo Finance."""
-    yf_syms = {**BIST_SYMBOLS, **COMMODITY_SYMBOLS}
+    """Tüm sembolleri paralel httpx çağrılarıyla çeker.
+    ALTIN/GUMUS Yahoo Finance'dan USD/troy oz olarak gelir; USDTRY ile TRY/gram'a çevrilir."""
+    all_syms = {**BIST_SYMBOLS, **COMMODITY_SYMBOLS}
 
     async def _fetch_one(display: str, yf_sym: str) -> dict | None:
         return await fetch_price(display, yf_sym)
 
-    yf_tasks = [_fetch_one(d, y) for d, y in yf_syms.items()]
-    yf_results, harem_results = await asyncio.gather(
-        asyncio.gather(*yf_tasks, return_exceptions=True),
-        fetch_harem_prices(),
-    )
+    tasks = [_fetch_one(d, y) for d, y in all_syms.items()]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    prices = [r for r in results if isinstance(r, dict) and r.get("price")]
 
-    prices = [r for r in yf_results if isinstance(r, dict) and r.get("price")]
-    prices.extend(harem_results)
-    log.info("prices_fetched", count=len(prices), yf=len(yf_syms), harem=len(harem_results))
+    # USD/troy oz → TRY/gram dönüşümü (1 troy oz = 31.1035 gram)
+    prices_map = {p["symbol"]: p for p in prices}
+    usdtry = (prices_map.get("DOLAR") or {}).get("price")
+    if usdtry and usdtry > 0:
+        for sym in ("ALTIN", "GUMUS"):
+            entry = prices_map.get(sym)
+            if entry and entry.get("price"):
+                usd_oz = entry["price"]
+                try_gram = round(usd_oz * usdtry / 31.1035, 2)
+                # closes da dönüştür (sparkline için)
+                old_closes = entry.get("closes") or []
+                new_closes = [round(c * usdtry / 31.1035, 2) for c in old_closes] if old_closes else []
+                prices_map[sym] = {**entry, "price": try_gram, "closes": new_closes}
+        prices = list(prices_map.values())
+
+    log.info("prices_fetched", count=len(prices), total=len(all_syms))
     return prices
 
 
