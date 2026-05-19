@@ -30,6 +30,34 @@ function greet(h: number) {
   return "İyi geceler";
 }
 
+function Sparkline({ closes, up }: { closes?: number[]; up: boolean }) {
+  const color = up ? "#047857" : "#DC2626";
+  if (!closes || closes.length < 2) {
+    return (
+      <svg viewBox="0 0 80 24" style={{ width: 80, height: 24, opacity: 0.2 }}>
+        <path d="M0,12 L80,12" fill="none" stroke={color} strokeWidth="1" strokeDasharray="3 3" />
+      </svg>
+    );
+  }
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const range = max - min || 1;
+  const n = closes.length;
+  const pts = closes.map((c, i) => {
+    const x = ((i / (n - 1)) * 78).toFixed(1);
+    const y = (22 - ((c - min) / range) * 20).toFixed(1);
+    return `${x},${y}`;
+  });
+  const line = "M" + pts.join(" L");
+  const fill = line + " L78,24 L0,24 Z";
+  return (
+    <svg viewBox="0 0 80 24" style={{ width: 80, height: 24 }}>
+      <path d={fill} fill={color} fillOpacity={0.12} />
+      <path d={line} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function timeAgo(d?: string | null) {
   if (!d) return "";
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
@@ -560,14 +588,15 @@ export default function Dashboard() {
               const up = (pct ?? 0) >= 0;
               return (
                 <li key={sym}>
-                  <Link href={`/${sym}`} style={{ textDecoration: "none", display: "grid", gridTemplateColumns: "36px 1fr auto auto", gap: 10, alignItems: "center", padding: "7px 10px", background: "var(--os-page)", borderRadius: 4, border: "1px solid var(--os-line)" }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 4, background: up ? "linear-gradient(135deg,#047857,#064E3B)" : "linear-gradient(135deg,#DC2626,#7F1D1D)", display: "grid", placeItems: "center", color: "#fff", fontFamily: "var(--os-serif)", fontSize: 14, flexShrink: 0 }}>
+                  <Link href={`/${sym}`} style={{ textDecoration: "none", display: "grid", gridTemplateColumns: "32px 1fr 80px auto auto", gap: 8, alignItems: "center", padding: "6px 10px", background: "var(--os-page)", borderRadius: 4, border: "1px solid var(--os-line)" }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 4, background: up ? "linear-gradient(135deg,#047857,#064E3B)" : "linear-gradient(135deg,#DC2626,#7F1D1D)", display: "grid", placeItems: "center", color: "#fff", fontFamily: "var(--os-serif)", fontSize: 13, flexShrink: 0 }}>
                       {sym.charAt(0)}
                     </div>
                     <div>
                       <div style={{ fontFamily: "var(--os-mono)", fontSize: 11, fontWeight: 700, color: "var(--os-ink)" }}>{sym}</div>
                     </div>
-                    <div style={{ fontFamily: "var(--os-mono)", fontSize: 12, fontWeight: 600, color: "var(--os-ink)", textAlign: "right" }}>
+                    <Sparkline closes={prices[sym]?.price?.closes} up={up} />
+                    <div style={{ fontFamily: "var(--os-mono)", fontSize: 11, fontWeight: 600, color: "var(--os-ink)", textAlign: "right" }}>
                       {loading ? <span style={{ opacity: 0.4 }}>···</span> : fmt(price)}
                     </div>
                     <div style={{ fontFamily: "var(--os-mono)", fontSize: 10, color: pct != null ? (up ? "var(--lz-success)" : "var(--lz-danger)") : "var(--os-muted)", textAlign: "right", minWidth: 52 }}>
