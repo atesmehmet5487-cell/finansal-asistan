@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kişisel Panel · OS</title>
+<link rel="stylesheet" href="lezzet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --os-page:   #ECE4D0;   /* parchment — page bg */
+    --os-card:   #F4ECD6;   /* warmer parchment — cards */
+    --os-line:   rgba(48, 35, 18, 0.10);
+    --os-line-2: rgba(48, 35, 18, 0.18);
+    --os-ink:    #1B1814;
+    --os-ink-2:  #4A4036;
+    --os-muted:  #8C8270;
+    --os-accent: var(--lz-primary);     /* #C2410C burnt orange */
+    --os-warm:   var(--lz-gold);        /* #D97706 */
+    --os-dark:   #1B1814;
+    --os-serif:  'Instrument Serif', 'Times New Roman', Georgia, serif;
+    --os-mono:   'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --os-sans:   var(--lz-font-sans);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--os-page);
+    color: var(--os-ink);
+    font-family: var(--os-sans);
+    font-size: 13px; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    height: 100vh;
+    overflow: hidden;
+    padding: 18px;
+    display: flex; flex-direction: column;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
+  ul { margin: 0; padding: 0; list-style: none; }
+
+  /* ---------- Frame brackets at corners ---------- */
+  .frame { position: relative; }
+  .frame::before, .frame::after,
+  .frame > .bot::before, .frame > .bot::after {
+    content: ""; position: fixed; width: 14px; height: 14px;
+    border-color: var(--os-ink); border-style: solid; border-width: 0;
+    pointer-events: none; z-index: 50;
+  }
+  .frame::before { top: 10px; left: 10px;  border-top-width: 2px; border-left-width: 2px; }
+  .frame::after  { top: 10px; right: 10px; border-top-width: 2px; border-right-width: 2px; }
+  .frame > .bot::before { bottom: 10px; left: 10px;  border-bottom-width: 2px; border-left-width: 2px; }
+  .frame > .bot::after  { bottom: 10px; right: 10px; border-bottom-width: 2px; border-right-width: 2px; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--os-mono); font-size: 10px; font-weight: 500;
+    letter-spacing: 0.4px; text-transform: uppercase;
+    color: var(--os-ink-2);
+    padding: 0 14px 10px;
+    flex-shrink: 0;
+  }
+  .topbar .left  { display: flex; align-items: center; gap: 14px; }
+  .topbar .right { display: flex; align-items: center; gap: 18px; }
+  .topbar .dot { color: var(--os-accent); font-size: 14px; line-height: 0; }
+  .topbar .sep { color: var(--os-line-2); }
+  .topbar b { color: var(--os-ink); font-weight: 600; }
+
+  /* ---------- Canvas grid ---------- */
+  .canvas {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: 150px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    flex: 1; min-height: 0;
+  }
+
+  /* ---------- Card primitive ---------- */
+  .card {
+    background: var(--os-card);
+    border: 1px solid var(--os-line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    min-width: 0; min-height: 0;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .eyebrow {
+    font-family: var(--os-mono); font-size: 10px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--os-muted);
+  }
+  .eyebrow b { color: var(--os-ink-2); font-weight: 600; }
+  .eyebrow .sep { color: var(--os-line-2); margin: 0 2px; }
+
+  /* Common type primitives */
+  .serif    { font-family: var(--os-serif); font-weight: 400; letter-spacing: -0.01em; }
+  .serif-i  { font-family: var(--os-serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
+  .mono     { font-family: var(--os-mono); }
+  .num      { font-variant-numeric: tabular-nums; }
+  .label    {
+    font-family: var(--os-mono); font-size: 9.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.6px; color: var(--os-muted);
+  }
+
+  /* ---------- Card grid positions ---------- */
+  .c-op       { grid-column: 1 / 4;   grid-row: 1; }
+  .c-session  { grid-column: 4 / 10;  grid-row: 1; }
+  .c-vit-top  { grid-column: 10 / 13; grid-row: 1; }
+
+  .c-map      { grid-column: 1 / 4;   grid-row: 2; }
+  .c-cal      { grid-column: 4 / 7;   grid-row: 2; }
+  .c-inbox    { grid-column: 7 / 10;  grid-row: 2; }
+  .c-vit-mid  { grid-column: 10 / 13; grid-row: 2 / 4; }
+
+  .c-news     { grid-column: 1 / 4;   grid-row: 3; }
+  .c-now      { grid-column: 4 / 10;  grid-row: 3; }
+  .c-thesis   { grid-column: 10 / 13; grid-row: 3; }
+
+  @media (max-width: 1280px) {
+    body { overflow: auto; height: auto; min-height: 100vh; }
+    .canvas { grid-template-columns: repeat(8, 1fr); grid-template-rows: auto auto auto; flex: none; }
+    .c-op { grid-column: 1 / 3; grid-row: 1; }
+    .c-session { grid-column: 3 / 7; grid-row: 1; }
+    .c-vit-top { grid-column: 7 / 9; grid-row: 1; }
+    .c-map { grid-column: 1 / 3; grid-row: 2; }
+    .c-cal { grid-column: 3 / 5; grid-row: 2; }
+    .c-inbox { grid-column: 5 / 7; grid-row: 2; }
+    .c-vit-mid { grid-column: 7 / 9; grid-row: 2 / 4; }
+    .c-now { grid-column: 3 / 7; grid-row: 3; }
+    .c-thesis { grid-column: 7 / 9; grid-row: 3; }
+    .c-news { grid-column: 1 / 3; grid-row: 3; }
+  }
+  @media (max-width: 900px) {
+    body { overflow: auto; height: auto; }
+    .canvas { grid-template-columns: 1fr; grid-template-rows: auto; gap: 10px; }
+    .canvas > * { grid-column: 1 / -1 !important; grid-row: auto !important; }
+  }
+
+  /* ---------- 01 OPERATOR ---------- */
+  .op-body { display: flex; align-items: center; gap: 12px; }
+  .op-avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, #C2410C, #D97706);
+    color: #fff;
+    display: grid; place-items: center;
+    font-family: var(--os-serif); font-size: 18px; font-weight: 400;
+    flex-shrink: 0;
+  }
+  .op-name {
+    font-family: var(--os-serif); font-size: 19px; font-weight: 400;
+    line-height: 1.1;
+  }
+  .op-name em { font-style: italic; }
+  .op-meta {
+    font-family: var(--os-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--os-muted); margin-top: 3px;
+  }
+  .op-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-top: 10px;
+    padding-top: 10px; border-top: 1px solid var(--os-line);
+  }
+  .op-grid .label { display: block; margin-bottom: 2px; }
+  .op-grid .val {
+    font-family: var(--os-mono); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.3px;
+    color: var(--os-ink);
+  }
+
+  /* ---------- 02 SESSION ---------- */
+  .session-body {
+    display: grid; grid-template-columns: 1fr auto; align-items: flex-end;
+    gap: 20px; flex: 1; min-height: 0;
+  }
+  .greeting {
+    font-family: var(--os-serif); font-weight: 400;
+    font-size: 44px; line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--os-ink);
+  }
+  .greeting em { font-style: italic; }
+  .session-date {
+    font-family: var(--os-mono); font-size: 9.5px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--os-muted);
+    margin-top: 10px;
+  }
+  .session-date b { color: var(--os-ink-2); }
+  .clock {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .clock-big {
+    font-family: var(--os-mono); font-weight: 500;
+    font-size: 42px; line-height: 1; letter-spacing: -0.02em;
+    color: var(--os-ink);
+    display: inline-flex; align-items: baseline; gap: 4px;
+  }
+  .clock-big .sec {
+    font-size: 14px; color: var(--os-muted); font-weight: 500;
+  }
+  .clock-sub { margin-top: 6px; }
+
+  /* ---------- 03 VITALS (portfolio) ---------- */
+  .vit-head { margin-bottom: 10px; }
+  .vit-big {
+    font-family: var(--os-serif); font-weight: 400;
+    font-size: 34px; line-height: 1;
+    letter-spacing: -0.01em;
+    color: var(--os-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .vit-big .unit {
+    font-family: var(--os-mono); font-weight: 500;
+    font-size: 10px; color: var(--os-muted);
+    text-transform: uppercase; letter-spacing: 0.6px;
+    margin-left: 6px;
+  }
+  .vit-sub {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    margin-top: 4px;
+    font-family: var(--os-mono); font-size: 9.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--os-muted);
+  }
+  .vit-sub b { color: var(--os-ink-2); }
+  .vit-spark {
+    margin-top: 8px; flex: 1;
+    width: 100%; min-height: 40px;
+  }
+
+  /* ---------- Sub-stat tiles (heart/sleep/hrv/water style) ---------- */
+  .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .stat-tile {
+    background: var(--os-card);
+    border: 1px solid var(--os-line);
+    border-radius: 5px;
+    padding: 8px 10px;
+  }
+  .stat-tile .label { display: flex; justify-content: space-between; }
+  .stat-tile .v {
+    font-family: var(--os-serif); font-weight: 400;
+    font-size: 18px; line-height: 1.1;
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-tile .v small {
+    font-family: var(--os-mono); font-size: 9px; font-weight: 500;
+    color: var(--os-muted); margin-left: 3px;
+    text-transform: lowercase;
+  }
+  .stat-tile.up   .v { color: var(--lz-success); }
+  .stat-tile.down .v { color: var(--lz-danger); }
+
+  /* ---------- Ring meters ---------- */
+  .rings {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--os-line);
+    text-align: center;
+  }
+  .ring-svg { width: 44px; height: 44px; }
+  .ring-svg circle.bg { fill: none; stroke: var(--os-line-2); stroke-width: 5; }
+  .ring-svg circle.fg { fill: none; stroke-width: 5; stroke-linecap: round;
+    transform: rotate(-90deg); transform-origin: center; }
+  .ring-lbl { font-family: var(--os-mono); font-size: 8.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.4px; color: var(--os-muted);
+    margin-top: 4px; }
+  .ring-val { font-family: var(--os-mono); font-size: 10px; font-weight: 600;
+    color: var(--os-ink); margin-top: 1px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- 04 MAP / HEATMAP ---------- */
+  .heatmap {
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 3px;
+  }
+  .heat {
+    border-radius: 3px;
+    padding: 5px 7px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-family: var(--os-mono); font-size: 9px;
+    color: var(--os-ink);
+    overflow: hidden; min-height: 0;
+  }
+  .heat .t { font-weight: 700; font-size: 10px; letter-spacing: 0.2px; }
+  .heat .p { font-variant-numeric: tabular-nums; font-weight: 500; opacity: 0.85; }
+  .heat.big { grid-column: span 3; grid-row: span 2; }
+  .heat.tall { grid-row: span 2; }
+  .heat.wide { grid-column: span 2; }
+  .heat.up-3 { background: #064E3B; color: #ECFDF5; }
+  .heat.up-2 { background: #047857; color: #ECFDF5; }
+  .heat.up-1 { background: #6EE7B7; color: #064E3B; }
+  .heat.flat { background: var(--os-card); color: var(--os-ink-2); border: 1px solid var(--os-line); }
+  .heat.dn-1 { background: #FCA5A5; color: #7F1D1D; }
+  .heat.dn-2 { background: #DC2626; color: #FEE2E2; }
+  .heat.dn-3 { background: #7F1D1D; color: #FEE2E2; }
+
+  .map-foot {
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--os-line);
+    display: flex; justify-content: space-between;
+    font-family: var(--os-mono); font-size: 9.5px;
+    color: var(--os-muted); text-transform: uppercase; letter-spacing: 0.4px;
+    flex-shrink: 0;
+  }
+  .map-foot b { color: var(--os-ink); font-weight: 600; }
+
+  /* ---------- 05 CALENDAR ---------- */
+  .cal-title {
+    font-family: var(--os-serif); font-size: 19px; font-weight: 400;
+    margin-bottom: 8px;
+  }
+  .cal-title em { font-style: italic; }
+  .day-strip {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+    margin-bottom: 10px;
+  }
+  .day {
+    background: var(--os-card); border: 1px solid var(--os-line);
+    border-radius: 4px; padding: 5px 2px;
+    text-align: center; cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+  .day:hover { border-color: var(--os-line-2); }
+  .day .d-lbl { font-family: var(--os-mono); font-size: 8.5px;
+    text-transform: uppercase; letter-spacing: 0.4px; color: var(--os-muted);
+    margin-bottom: 2px; font-weight: 600; }
+  .day .d-num { font-family: var(--os-mono); font-size: 13px; font-weight: 600;
+    font-variant-numeric: tabular-nums; color: var(--os-ink); }
+  .day.is-today { background: var(--os-dark); border-color: var(--os-dark); }
+  .day.is-today .d-lbl, .day.is-today .d-num { color: #F4ECD6; }
+
+  .event-list { display: flex; flex-direction: column; gap: 0; flex: 1; min-height: 0; overflow: hidden; }
+  .ev {
+    display: grid; grid-template-columns: 68px 1fr auto;
+    gap: 10px; align-items: flex-start;
+    padding: 7px 0;
+    border-top: 1px solid var(--os-line);
+  }
+  .ev:first-child { border-top: none; padding-top: 2px; }
+  .ev-time {
+    font-family: var(--os-mono); font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.3px;
+    color: var(--os-muted); padding-top: 2px;
+  }
+  .ev-time.is-now { color: var(--os-accent); }
+  .ev-title {
+    font-size: 12.5px; font-weight: 600; color: var(--os-ink);
+    line-height: 1.25;
+  }
+  .ev-sub {
+    font-family: var(--os-mono); font-size: 9.5px;
+    color: var(--os-muted); margin-top: 2px;
+    text-transform: none; letter-spacing: 0;
+  }
+  .ev-dot { width: 5px; height: 5px; border-radius: 50%;
+    background: var(--os-muted); margin-top: 7px; }
+  .ev.high .ev-dot { background: var(--os-accent); box-shadow: 0 0 0 3px rgba(194,65,12,0.18); }
+
+  /* ---------- 06 INBOX / SIGNALS ---------- */
+  .inbox-list { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; overflow: hidden; }
+  .ib {
+    display: grid; grid-template-columns: 26px 1fr auto;
+    gap: 10px; align-items: center;
+    padding: 7px 10px; background: var(--os-page);
+    border-radius: 4px; border: 1px solid var(--os-line);
+  }
+  .ib-pic {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--os-mono); font-size: 9px; font-weight: 700;
+    color: #fff;
+  }
+  .ib-pic.p-orange { background: #C2410C; }
+  .ib-pic.p-teal   { background: #0E7C66; }
+  .ib-pic.p-blue   { background: #2563EB; }
+  .ib-pic.p-purple { background: #7C3AED; }
+  .ib-pic.p-amber  { background: #D97706; }
+  .ib-name { font-size: 12px; font-weight: 700; color: var(--os-ink);
+    display: flex; align-items: center; gap: 6px; }
+  .ib-urgent {
+    font-family: var(--os-mono); font-size: 8.5px; font-weight: 700;
+    letter-spacing: 0.5px; padding: 1px 5px; border-radius: 3px;
+    background: var(--os-accent); color: #fff;
+    text-transform: uppercase;
+  }
+  .ib-msg { font-family: var(--os-mono); font-size: 9.5px;
+    color: var(--os-muted); margin-top: 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ib-time { font-family: var(--os-mono); font-size: 9.5px;
+    color: var(--os-muted); font-variant-numeric: tabular-nums; }
+
+  /* ---------- 07 NOW WATCHING (ticker) ---------- */
+  .now-body { display: grid; grid-template-columns: 64px 1fr; gap: 12px;
+    align-items: center; }
+  .now-pic {
+    width: 64px; height: 64px; border-radius: 6px;
+    background: linear-gradient(135deg, #76B900 0%, #2E7D00 100%);
+    display: grid; place-items: center;
+    color: #fff; font-family: var(--os-serif); font-size: 28px; font-weight: 400;
+    box-shadow: inset 0 0 24px rgba(0,0,0,0.18);
+  }
+  .now-title {
+    font-family: var(--os-serif); font-size: 24px; font-weight: 400;
+    line-height: 1.1;
+  }
+  .now-title em { font-style: italic; }
+  .now-sub {
+    font-family: var(--os-mono); font-size: 9.5px;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--os-muted); margin-top: 4px;
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .now-sub b { color: var(--os-ink); }
+  .now-sub .up { color: var(--lz-success); font-weight: 700; }
+  .now-sub .down { color: var(--lz-danger); font-weight: 700; }
+
+  .now-chart { margin-top: 10px; flex: 1; min-height: 36px; width: 100%; }
+
+  .now-bar {
+    display: flex; align-items: center; gap: 16px; margin-top: 8px;
+    padding-top: 8px; border-top: 1px solid var(--os-line);
+    flex-shrink: 0;
+  }
+  .now-time { font-family: var(--os-mono); font-size: 10px;
+    color: var(--os-muted); font-variant-numeric: tabular-nums; }
+  .now-ctrls { display: flex; gap: 6px; margin: 0 auto; align-items: center; }
+  .now-ctrls button { width: 26px; height: 26px; border-radius: 50%;
+    display: grid; place-items: center; color: var(--os-ink-2);
+    transition: background 150ms ease, color 150ms ease; }
+  .now-ctrls button:hover { background: var(--os-line); color: var(--os-ink); }
+  .now-play { width: 32px !important; height: 32px !important;
+    background: var(--os-dark) !important; color: #F4ECD6 !important; }
+  .now-play:hover { background: var(--os-accent) !important; color: #fff !important; }
+
+  /* ---------- 08 ACTIVE THESIS ---------- */
+  .thesis-title {
+    font-family: var(--os-serif); font-size: 22px; font-weight: 400;
+    line-height: 1.1; letter-spacing: -0.01em;
+  }
+  .thesis-title em { font-style: italic; }
+  .thesis-sub {
+    font-family: var(--os-mono); font-size: 9.5px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--os-muted); margin-top: 4px;
+  }
+  .progress-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--os-mono); font-size: 9.5px;
+    text-transform: uppercase; letter-spacing: 0.5px; color: var(--os-muted);
+    margin-top: 10px;
+  }
+  .progress-row b { color: var(--os-ink); font-size: 12px; font-weight: 700; }
+  .progress-bar {
+    margin-top: 5px; width: 100%; height: 4px; border-radius: 2px;
+    background: var(--os-line); overflow: hidden;
+  }
+  .progress-bar > div {
+    height: 100%; background: linear-gradient(90deg, var(--os-warm), var(--os-accent));
+    border-radius: 2px;
+  }
+  .check-list { display: flex; flex-direction: column; gap: 0;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--os-line);
+    flex: 1; min-height: 0; overflow: hidden; }
+  .chk {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0; cursor: pointer;
+    font-size: 11.5px; color: var(--os-ink);
+  }
+  .chk-box {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1.5px solid var(--os-line-2);
+    display: grid; place-items: center;
+    color: #fff; font-size: 9px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .chk.done .chk-box { background: var(--os-accent); border-color: var(--os-accent); }
+  .chk.done .chk-box::after { content: "✓"; }
+  .chk.done span { color: var(--os-muted); text-decoration: line-through; }
+
+  /* ---------- News / sources card ---------- */
+  .news-list { display: flex; flex-direction: column; gap: 0; flex: 1; min-height: 0; overflow: hidden; }
+  .news-item { padding: 6px 0; border-top: 1px solid var(--os-line); }
+  .news-item:first-child { border-top: none; padding-top: 0; }
+  .news-src {
+    font-family: var(--os-mono); font-size: 9px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--os-accent);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .news-src .t { color: var(--os-muted); margin-left: auto; }
+  .news-h {
+    font-size: 12px; font-weight: 600; line-height: 1.3;
+    margin-top: 2px; color: var(--os-ink);
+    text-wrap: pretty;
+  }
+
+  /* status pills */
+  .live-pill {
+    font-family: var(--os-mono); font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--os-accent);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .live-pill::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--os-accent);
+    animation: os-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes os-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+</style>
+</head>
+<body class="frame">
+<div class="bot"></div>
+
+<!-- ========== TOP BAR ========== -->
+<header class="topbar">
+  <div class="left">
+    <span class="dot">●</span>
+    <span><b>KİŞİSEL PANEL</b> // V2.0</span>
+  </div>
+  <div class="right">
+    <span>İSTANBUL, TR <span class="sep">·</span> <b>19°C</b></span>
+    <span class="sep">·</span>
+    <span>NYSE <b>AÇIK</b></span>
+    <span class="sep">·</span>
+    <span>NET <b>142MB/S</b></span>
+    <span class="sep">·</span>
+    <span id="tb-date">20260516-2130</span>
+  </div>
+</header>
+
+<!-- ========== CANVAS ========== -->
+<main class="canvas">
+
+  <!-- 01 OPERATOR -->
+  <section class="card c-op">
+    <div class="card-head">
+      <span class="eyebrow"><b>01</b> <span class="sep">//</span> OPERATÖR</span>
+      <span class="live-pill">ÇEVRİMİÇİ</span>
+    </div>
+    <div class="op-body">
+      <div class="op-avatar">M</div>
+      <div>
+        <div class="op-name">Mehmet <em>Ateş</em></div>
+        <div class="op-meta">YATIRIMCI · İSTANBUL</div>
+      </div>
+    </div>
+    <div class="op-grid">
+      <div>
+        <div class="label">ODAK</div>
+        <div class="val">DERİN ANALİZ</div>
+      </div>
+      <div>
+        <div class="label">DURUM</div>
+        <div class="val">İZLİYOR</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 SESSION -->
+  <section class="card c-session">
+    <div class="card-head">
+      <span class="eyebrow"><b>02</b> <span class="sep">//</span> OTURUM</span>
+      <span class="eyebrow">UTC <span class="sep">·</span> +03:00 <span class="sep">·</span> TRT</span>
+    </div>
+    <div class="session-body">
+      <div>
+        <div class="greeting">İyi <em>akşamlar</em>, Mehmet.</div>
+        <div class="session-date"><b>CUMARTESİ</b> · 16 MAYIS, 2026 · YILIN <b>136.</b> GÜNÜ</div>
+      </div>
+      <div class="clock">
+        <div class="clock-big" id="clock-big">21<span style="color:var(--os-muted);">:</span>30<span class="sec" id="clock-sec">42</span></div>
+        <div class="eyebrow clock-sub">NEW YORK · PİYASA AÇIK</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 VITALS (TOP) — Portföy -->
+  <section class="card c-vit-top">
+    <div class="card-head">
+      <span class="eyebrow"><b>03</b> <span class="sep">//</span> PORTFÖY</span>
+      <span class="live-pill">CANLI</span>
+    </div>
+    <div class="vit-big num">₺1.247.382</div>
+    <div class="vit-sub">
+      <span>BUGÜN · <b style="color:var(--lz-success);">+₺18.4K</b></span>
+      <span><b style="color:var(--lz-success);">+%1.50</b> · 30G</span>
+    </div>
+    <svg class="vit-spark" viewBox="0 0 240 80" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stop-color="#C2410C" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="#C2410C" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="M0,60 L20,58 L40,55 L60,52 L80,54 L100,48 L120,46 L140,42 L160,38 L180,32 L200,28 L220,22 L240,18 L240,80 L0,80 Z"
+            fill="url(#sparkFill)"/>
+      <path d="M0,60 L20,58 L40,55 L60,52 L80,54 L100,48 L120,46 L140,42 L160,38 L180,32 L200,28 L220,22 L240,18"
+            fill="none" stroke="#C2410C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </section>
+
+  <!-- 04 MARKET HEATMAP -->
+  <section class="card c-map">
+    <div class="card-head">
+      <span class="eyebrow"><b>04</b> <span class="sep">//</span> PİYASA HARİTASI</span>
+      <span class="eyebrow">S&amp;P 500</span>
+    </div>
+    <div class="heatmap">
+      <div class="heat big up-2"><span class="t">NVDA</span><span class="p">+3.42%</span></div>
+      <div class="heat tall up-3"><span class="t">AAPL</span><span class="p">+1.84%</span></div>
+      <div class="heat wide up-1"><span class="t">MSFT</span><span class="p">+0.92%</span></div>
+      <div class="heat dn-1"><span class="t">GOOGL</span><span class="p">−0.34%</span></div>
+      <div class="heat up-2"><span class="t">AMZN</span><span class="p">+2.10%</span></div>
+      <div class="heat tall dn-2"><span class="t">META</span><span class="p">−2.40%</span></div>
+      <div class="heat up-1"><span class="t">TSLA</span><span class="p">+0.68%</span></div>
+      <div class="heat dn-1"><span class="t">JPM</span><span class="p">−0.18%</span></div>
+      <div class="heat up-2"><span class="t">V</span><span class="p">+1.20%</span></div>
+      <div class="heat flat"><span class="t">UNH</span><span class="p">+0.04%</span></div>
+      <div class="heat up-1"><span class="t">XOM</span><span class="p">+0.55%</span></div>
+      <div class="heat dn-1"><span class="t">PG</span><span class="p">−0.22%</span></div>
+    </div>
+    <div class="map-foot">
+      <span>ADV/DEC <span class="sep">·</span> <b>312/188</b></span>
+      <span>VOL <span class="sep">·</span> <b>4.2B</b></span>
+    </div>
+  </section>
+
+  <!-- 05 CALENDAR -->
+  <section class="card c-cal">
+    <div class="card-head">
+      <span class="eyebrow"><b>05</b> <span class="sep">//</span> EKONOMİK TAKVİM</span>
+      <span class="eyebrow">MAY 2026</span>
+    </div>
+    <div class="cal-title">Cumartesi, <em>16 Mayıs</em></div>
+    <div class="day-strip">
+      <button class="day"><div class="d-lbl">PZT</div><div class="d-num">11</div></button>
+      <button class="day"><div class="d-lbl">SAL</div><div class="d-num">12</div></button>
+      <button class="day"><div class="d-lbl">ÇAR</div><div class="d-num">13</div></button>
+      <button class="day"><div class="d-lbl">PER</div><div class="d-num">14</div></button>
+      <button class="day"><div class="d-lbl">CUM</div><div class="d-num">15</div></button>
+      <button class="day is-today"><div class="d-lbl">CMT</div><div class="d-num">16</div></button>
+      <button class="day"><div class="d-lbl">PAZ</div><div class="d-num">17</div></button>
+    </div>
+    <ul class="event-list">
+      <li class="ev high">
+        <span class="ev-time is-now">PZT · 14:30</span>
+        <div>
+          <div class="ev-title">CPI Verisi · ABD</div>
+          <div class="ev-sub">Enflasyon beklentisi %3.2 · Aylık +0.3</div>
+        </div>
+        <span class="ev-dot"></span>
+      </li>
+      <li class="ev high">
+        <span class="ev-time">ÇAR · 22:00</span>
+        <div>
+          <div class="ev-title">FOMC Tutanağı</div>
+          <div class="ev-sub">Faiz patikası sinyali · Powell konuşması</div>
+        </div>
+        <span class="ev-dot"></span>
+      </li>
+      <li class="ev">
+        <span class="ev-time">PER · 21:30</span>
+        <div>
+          <div class="ev-title">NVDA · Çeyrek Raporu</div>
+          <div class="ev-sub">Konsensüs $0.85 EPS · $24.6B gelir</div>
+        </div>
+        <span class="ev-dot"></span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- 06 INBOX / SIGNALS -->
+  <section class="card c-inbox">
+    <div class="card-head">
+      <span class="eyebrow"><b>06</b> <span class="sep">//</span> SİNYALLER · KRİTİK</span>
+      <span class="eyebrow" style="color:var(--os-accent);">4 OKUNMADI</span>
+    </div>
+    <ul class="inbox-list">
+      <li class="ib">
+        <div class="ib-pic p-orange">NV</div>
+        <div style="min-width:0;">
+          <div class="ib-name">NVDA <span class="ib-urgent">ACİL</span></div>
+          <div class="ib-msg">Olağandışı call opsiyon hacmi · IV +%18</div>
+        </div>
+        <span class="ib-time">3dk</span>
+      </li>
+      <li class="ib">
+        <div class="ib-pic p-blue">MT</div>
+        <div style="min-width:0;">
+          <div class="ib-name">META · Insider Satış</div>
+          <div class="ib-msg">3 yönetici $24M satış · Form 4 bildirimi</div>
+        </div>
+        <span class="ib-time">12dk</span>
+      </li>
+      <li class="ib">
+        <div class="ib-pic p-purple">FE</div>
+        <div style="min-width:0;">
+          <div class="ib-name">Fed · Powell Konuşması</div>
+          <div class="ib-msg">"Veri-bağımlı" vurgusu · Sentiment +0.62</div>
+        </div>
+        <span class="ib-time">1sa</span>
+      </li>
+      <li class="ib">
+        <div class="ib-pic p-amber">BT</div>
+        <div style="min-width:0;">
+          <div class="ib-name">BTC · 65K Direnci</div>
+          <div class="ib-msg">Direnç kırıldı · Volüm +%34 son 4 saatte</div>
+        </div>
+        <span class="ib-time">2sa</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- 03b VITALS (MID+BOT merged) — Endeksler + Dağılım rings -->
+  <section class="card c-vit-mid">
+    <div class="card-head">
+      <span class="eyebrow"><b>03</b> <span class="sep">//</span> PİYASA &amp; DAĞILIM</span>
+      <span class="eyebrow">CANLI</span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-tile up"><div class="label">S&amp;P 500 <span style="color:var(--lz-success);">▲</span></div>
+        <div class="v">5,284<small>+0.42%</small></div></div>
+      <div class="stat-tile up"><div class="label">NASDAQ <span style="color:var(--lz-success);">▲</span></div>
+        <div class="v">16,712<small>+0.68%</small></div></div>
+      <div class="stat-tile down"><div class="label">VIX <span style="color:var(--lz-danger);">▼</span></div>
+        <div class="v">14.2<small>−2.1%</small></div></div>
+      <div class="stat-tile up"><div class="label">DXY <span style="color:var(--lz-success);">▲</span></div>
+        <div class="v">104.8<small>+0.12%</small></div></div>
+      <div class="stat-tile up"><div class="label">BTC <span style="color:var(--lz-success);">▲</span></div>
+        <div class="v num">68.2K<small>+1.8%</small></div></div>
+      <div class="stat-tile down"><div class="label">ALTIN <span style="color:var(--lz-danger);">▼</span></div>
+        <div class="v num">2,381<small>−0.4%</small></div></div>
+    </div>
+    <div class="rings">
+      <div>
+        <svg class="ring-svg" viewBox="0 0 60 60">
+          <circle class="bg" cx="30" cy="30" r="24"/>
+          <circle class="fg" cx="30" cy="30" r="24"
+            stroke="#C2410C" stroke-dasharray="113 151" />
+        </svg>
+        <div class="ring-lbl">HİSSE</div>
+        <div class="ring-val">%62</div>
+      </div>
+      <div>
+        <svg class="ring-svg" viewBox="0 0 60 60">
+          <circle class="bg" cx="30" cy="30" r="24"/>
+          <circle class="fg" cx="30" cy="30" r="24"
+            stroke="#0E7C66" stroke-dasharray="60 151" />
+        </svg>
+        <div class="ring-lbl">NAKİT</div>
+        <div class="ring-val">%24</div>
+      </div>
+      <div>
+        <svg class="ring-svg" viewBox="0 0 60 60">
+          <circle class="bg" cx="30" cy="30" r="24"/>
+          <circle class="fg" cx="30" cy="30" r="24"
+            stroke="#D97706" stroke-dasharray="35 151" />
+        </svg>
+        <div class="ring-lbl">KRİPTO</div>
+        <div class="ring-val">%14</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- News card (bottom-left) -->
+  <section class="card c-news">
+    <div class="card-head">
+      <span class="eyebrow"><b>09</b> <span class="sep">//</span> HABER AKIŞI</span>
+      <span class="live-pill">CANLI</span>
+    </div>
+    <ul class="news-list">
+      <li class="news-item">
+        <div class="news-src">REUTERS<span class="t">2dk</span></div>
+        <div class="news-h">Powell: "Enflasyon yolunda ama acele etmeyeceğiz"</div>
+      </li>
+      <li class="news-item">
+        <div class="news-src">BLOOMBERG<span class="t">14dk</span></div>
+        <div class="news-h">NVIDIA, AI çip arzında yeni rekor — analistler hedef yükseltti</div>
+      </li>
+      <li class="news-item">
+        <div class="news-src">WSJ<span class="t">38dk</span></div>
+        <div class="news-h">Meta'da insider satışları son 6 ayın zirvesinde</div>
+      </li>
+      <li class="news-item">
+        <div class="news-src">CNBC<span class="t">1sa</span></div>
+        <div class="news-h">Bitcoin 65K direncini kırdı, ETF girişleri sürüyor</div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- 07 NOW WATCHING (ticker focus) -->
+  <section class="card c-now">
+    <div class="card-head">
+      <span class="eyebrow"><b>07</b> <span class="sep">//</span> ŞU AN İZLENİYOR</span>
+      <span class="eyebrow">NASDAQ <span class="sep">·</span> NVDA</span>
+    </div>
+    <div class="now-body">
+      <div class="now-pic">N</div>
+      <div>
+        <div class="now-title">NVIDIA <em>Corp.</em></div>
+        <div class="now-sub">
+          <b>$945.32</b>
+          <span class="up">▲ +$31.24</span>
+          <span class="up">+3.42%</span>
+          <span>·</span>
+          <span>HACİM <b>42.1M</b></span>
+        </div>
+      </div>
+    </div>
+    <svg class="now-chart" viewBox="0 0 600 50" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="nvF" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0E7C66" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#0E7C66" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="M0,38 L20,36 L40,40 L60,34 L80,32 L100,36 L120,30 L140,28 L160,32 L180,26 L200,24 L220,28 L240,22 L260,20 L280,24 L300,18 L320,22 L340,16 L360,20 L380,14 L400,18 L420,12 L440,16 L460,10 L480,14 L500,8 L520,12 L540,6 L560,10 L580,4 L600,8 L600,50 L0,50 Z" fill="url(#nvF)"/>
+      <path d="M0,38 L20,36 L40,40 L60,34 L80,32 L100,36 L120,30 L140,28 L160,32 L180,26 L200,24 L220,28 L240,22 L260,20 L280,24 L300,18 L320,22 L340,16 L360,20 L380,14 L400,18 L420,12 L440,16 L460,10 L480,14 L500,8 L520,12 L540,6 L560,10 L580,4 L600,8"
+        fill="none" stroke="#0E7C66" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="now-bar">
+      <span class="now-time">09:30 · AÇILIŞ $914.08</span>
+      <div class="now-ctrls">
+        <button title="Önceki">‹‹</button>
+        <button class="now-play" title="Detay">▶</button>
+        <button title="Sonraki">››</button>
+      </div>
+      <span class="now-time">16:00 · KAPANIŞ $945.32</span>
+    </div>
+  </section>
+
+  <!-- 08 ACTIVE THESIS -->
+  <section class="card c-thesis">
+    <div class="card-head">
+      <span class="eyebrow"><b>08</b> <span class="sep">//</span> AKTİF TEZ</span>
+      <span class="eyebrow" style="color:var(--os-accent);">Q2 2026</span>
+    </div>
+    <div class="thesis-title">AI Yarı <em>iletken</em></div>
+    <div class="thesis-sub">NVDA <span class="sep">·</span> AMD <span class="sep">·</span> TSM <span class="sep">·</span> ASML</div>
+    <div class="progress-row">
+      <span>İLERLEME</span>
+      <span><b>%68</b></span>
+    </div>
+    <div class="progress-bar"><div style="width:68%;"></div></div>
+    <div class="check-list">
+      <label class="chk done"><span class="chk-box"></span><span>NVDA pozisyon açıldı</span></label>
+      <label class="chk done"><span class="chk-box"></span><span>AMD takip listesine eklendi</span></label>
+      <label class="chk"><span class="chk-box"></span><span>TSM çeyreklik analiz</span></label>
+      <label class="chk"><span class="chk-box"></span><span>Sektör korelasyon kontrolü</span></label>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // Live clock
+  (function () {
+    const big = document.getElementById('clock-big');
+    const sec = document.getElementById('clock-sec');
+    const tbDate = document.getElementById('tb-date');
+    function tick() {
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      big.innerHTML = hh + '<span style="color:var(--os-muted);">:</span>' + mm
+        + '<span class="sec" id="clock-sec">' + ss + '</span>';
+      const y = d.getFullYear();
+      const M = String(d.getMonth() + 1).padStart(2, '0');
+      const D = String(d.getDate()).padStart(2, '0');
+      tbDate.textContent = `${y}${M}${D}-${hh}${mm}`;
+    }
+    tick(); setInterval(tick, 1000);
+  })();
+
+  // Checklist toggle
+  document.querySelectorAll('.chk').forEach(c => {
+    c.addEventListener('click', (e) => {
+      e.preventDefault();
+      c.classList.toggle('done');
+    });
+  });
+
+  // Day strip — pick a day
+  document.querySelectorAll('.day').forEach(d => {
+    d.addEventListener('click', () => {
+      document.querySelectorAll('.day').forEach(x => x.classList.remove('is-today'));
+      d.classList.add('is-today');
+    });
+  });
+
+  // Inbox click → mark as read (visual fade)
+  document.querySelectorAll('.ib').forEach(ib => {
+    ib.addEventListener('click', () => {
+      ib.style.opacity = ib.style.opacity === '0.55' ? '1' : '0.55';
+    });
+  });
+</script>
+</body>
+</html>

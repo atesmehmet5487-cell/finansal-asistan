@@ -105,6 +105,43 @@ async def get_history(symbol: str, days: int = 30):
     return {"symbol": symbol, "history": history}
 
 
+@router.get("/prices/all")
+async def get_all_prices():
+    """Tüm sembol fiyatlarını tek seferde döner — frontend batch çağrısı için."""
+    from collectors.price_collector import BIST_SYMBOLS, COMMODITY_SYMBOLS
+    import asyncio as _asyncio
+
+    all_syms = {**BIST_SYMBOLS, **COMMODITY_SYMBOLS}
+    prices: dict = {}
+
+    # Önce cache'den oku
+    tasks = {sym: cache_get(f"cache:price:{sym}") for sym in all_syms}
+    for sym, coro in tasks.items():
+        val = await coro
+        if val:
+            prices[sym] = val
+
+    # Cache'de olmayan sembolleri on-demand paralel çek
+    missing = [s for s in all_syms if s not in prices]
+    if missing:
+        async def _fetch_one(sym: str):
+            yf_sym = all_syms[sym]
+            result = await _asyncio.to_thread(_fetch_price_sync, sym, yf_sym)
+            if result:
+                await cache_set(f"cache:price:{sym}", result, TTL["price"])
+            return sym, result
+
+        from collectors.price_collector import _fetch_price_sync
+        fetched = await _asyncio.gather(*[_fetch_one(s) for s in missing], return_exceptions=True)
+        for item in fetched:
+            if isinstance(item, tuple):
+                sym, val = item
+                if val:
+                    prices[sym] = val
+
+    return {"prices": prices, "count": len(prices)}
+
+
 @router.get("/trending")
 async def get_trending():
     from api.routes.search import KNOWN_SYMBOLS

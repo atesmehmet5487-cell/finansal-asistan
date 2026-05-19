@@ -154,6 +154,10 @@ export default function Navbar() {
           </b>
         </span>
         <span style={{ color: "var(--os-line-2)" }}>·</span>
+        <Link href="/portfolio" style={{ color: "var(--os-muted)", textDecoration: "none" }}>
+          PORTFÖY
+        </Link>
+        <span style={{ color: "var(--os-line-2)" }}>·</span>
         <Link href="/news" style={{ color: "var(--os-muted)", textDecoration: "none" }}>
           HABERLER
         </Link>

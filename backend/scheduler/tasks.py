@@ -28,43 +28,80 @@ TRACKED_SYMBOLS = [
 ]
 
 
+def _raw_to_feed(raw: list[dict]) -> list[dict]:
+    """Ham RSS haberlerini, AI analizi olmadan feed formatına çevirir."""
+    result = []
+    for a in raw:
+        hint = a.get("importance_hint", "MEDIUM")
+        result.append({
+            "id": a.get("id", ""),
+            "title": a.get("title", ""),
+            "source": a.get("source", ""),
+            "url": a.get("url", ""),
+            "published_at": a.get("published_at", ""),
+            "importance": hint,
+            "categories": [],
+            "affected_assets": [],
+            "summary_tr": "",
+            "sentiment_score": None,
+        })
+    return result
+
+
 async def run_news_pipeline():
     log.info("pipeline_start", stage="news")
     raw_news = await fetch_all_news()
     if not raw_news:
         return
 
-    analyzed = await analyze_news_batch(raw_news)
+    # Ham haberleri hemen cache'le — AI analizi başarısız olsa bile haberler görünür
+    raw_feed = _raw_to_feed(raw_news)
+    existing = await cache_get("cache:news:feed:latest")
+    if not existing:
+        await cache_set("cache:news:feed:latest", raw_feed[:60], TTL["news"])
 
     try:
-        async with AsyncSessionLocal() as db:
-            for item in analyzed:
-                existing = await db.execute(select(News).where(News.url == item.get("url")))
-                if existing.scalar_one_or_none():
-                    continue
-                news = News(
-                    title=item.get("title", ""),
-                    source=item.get("source", ""),
-                    url=item.get("url"),
-                    published_at=item.get("published_at"),
-                    sentiment_score=item.get("sentiment_score"),
-                    sentiment_label=item.get("sentiment_label"),
-                    importance=item.get("importance"),
-                    categories=item.get("categories", []),
-                    summary_tr=item.get("summary_tr"),
-                    raw_content=item.get("content", "")[:2000],
-                )
-                db.add(news)
-            await db.commit()
+        analyzed = await analyze_news_batch(raw_news)
     except Exception as e:
-        log.warning("news_db_save_failed", error=str(e))
+        log.error("news_analysis_failed", error=str(e))
+        analyzed = []
 
-    critical = [n for n in analyzed if n.get("importance") == "CRITICAL"]
-    if critical:
-        await pubsub_publish("pub:breaking_news", {"news": critical})
+    if analyzed:
+        try:
+            async with AsyncSessionLocal() as db:
+                for item in analyzed:
+                    existing_row = await db.execute(select(News).where(News.url == item.get("url")))
+                    if existing_row.scalar_one_or_none():
+                        continue
+                    news = News(
+                        title=item.get("title", ""),
+                        source=item.get("source", ""),
+                        url=item.get("url"),
+                        published_at=item.get("published_at"),
+                        sentiment_score=item.get("sentiment_score"),
+                        sentiment_label=item.get("sentiment_label"),
+                        importance=item.get("importance"),
+                        categories=item.get("categories", []),
+                        summary_tr=item.get("summary_tr"),
+                        raw_content=item.get("content", "")[:2000],
+                    )
+                    db.add(news)
+                await db.commit()
+        except Exception as e:
+            log.warning("news_db_save_failed", error=str(e))
 
-    await cache_set("cache:news:feed:latest", analyzed[:50], TTL["news"])
-    log.info("pipeline_done", stage="news", count=len(analyzed))
+        critical = [n for n in analyzed if n.get("importance") == "CRITICAL"]
+        if critical:
+            await pubsub_publish("pub:breaking_news", {"news": critical})
+
+        # AI analizi başarılıysa üzerine yaz
+        merged = analyzed + [r for r in raw_feed if not any(a.get("id") == r.get("id") for a in analyzed)]
+        await cache_set("cache:news:feed:latest", merged[:60], TTL["news"])
+        log.info("pipeline_done", stage="news", count=len(analyzed))
+    else:
+        # AI analizi boşsa ham haberleri güncelle
+        await cache_set("cache:news:feed:latest", raw_feed[:60], TTL["news"])
+        log.info("pipeline_done_raw_fallback", stage="news", count=len(raw_feed))
 
 
 async def run_price_pipeline():

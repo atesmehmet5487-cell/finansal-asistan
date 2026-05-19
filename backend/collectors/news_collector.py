@@ -10,12 +10,16 @@ log = structlog.get_logger()
 settings = get_settings()
 
 RSS_FEEDS = [
-    {"name": "KAP", "url": "https://www.kap.org.tr/tr/rss/Duyuru", "importance": "CRITICAL"},
+    # Global erişimli — Railway US sunucularından çalışır
     {"name": "Investing.com TR", "url": "https://tr.investing.com/rss/news.rss", "importance": "HIGH"},
-    {"name": "Finansgundem", "url": "https://www.finansgundem.com/rss/son-haberler", "importance": "MEDIUM"},
-    {"name": "Reuters TR", "url": "https://tr.reuters.com/rssFeed/topNews", "importance": "HIGH"},
-    {"name": "BorsaGündem", "url": "https://www.borsagundem.com.tr/rss", "importance": "HIGH"},
+    {"name": "Google Finans TR", "url": "https://news.google.com/rss/search?q=borsa+BIST+hisse+TL&hl=tr&gl=TR&ceid=TR:tr", "importance": "MEDIUM"},
+    {"name": "Google Ekonomi TR", "url": "https://news.google.com/rss/search?q=dolar+euro+faiz+enflasyon+Türkiye&hl=tr&gl=TR&ceid=TR:tr", "importance": "MEDIUM"},
     {"name": "Mynet Son Dakika", "url": "https://www.mynet.com/haber/rss/sondakika", "importance": "MEDIUM"},
+    # Türkiye'den erişimli (zaman zaman çalışır)
+    {"name": "KAP", "url": "https://www.kap.org.tr/tr/rss/Duyuru", "importance": "CRITICAL"},
+    {"name": "BorsaGündem", "url": "https://www.borsagundem.com.tr/rss", "importance": "HIGH"},
+    {"name": "Finansgundem", "url": "https://www.finansgundem.com/rss/son-haberler", "importance": "MEDIUM"},
+    {"name": "Sabah Ekonomi", "url": "https://www.sabah.com.tr/rss/ekonomi.xml", "importance": "MEDIUM"},
 ]
 
 

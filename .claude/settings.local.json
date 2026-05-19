@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://finansal-asistan.vercel.app/_next/static/chunks/4bd1b696-c023c6e3521b1417.js\")",
+      "Bash(curl -s \"https://finansal-asistan.vercel.app\")",
+      "Bash(git push *)"
+    ]
+  }
+}

@@ -120,28 +120,29 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
-  // Fiyat çekimi
+  // Fiyat çekimi — tek batch çağrısı (20+ ayrı istek yerine 2 istek)
   const fetchPrices = useCallback(async () => {
-    const all = [...new Set([...bistSymbols, ...MARKET_SYMBOLS, ...watchlist])];
     try {
-      const [newsRes, ...assetRes] = await Promise.all([
+      const [newsRes, pricesRes] = await Promise.all([
         fetch(`${API}/api/v1/news/feed?category=all&limit=30`).then(r => r.json()).catch(() => ({ news: [] })),
-        ...all.map(s => fetch(`${API}/api/v1/assets/${s}`).then(r => r.ok ? r.json() : null).catch(() => null)),
+        fetch(`${API}/api/v1/prices/all`).then(r => r.json()).catch(() => ({ prices: {} })),
       ]);
       setNews(newsRes.news || []);
+      const raw: Record<string, any> = pricesRes.prices || {};
       const pm: Record<string, any> = {};
-      all.forEach((s, i) => { if (assetRes[i]) pm[s] = assetRes[i]; });
-      setPrices(pm);
+      // Her price objesini {price: priceObj} formatına sar (gp/gc uyumluluğu)
+      Object.entries(raw).forEach(([sym, priceObj]) => { pm[sym] = { price: priceObj }; });
+      if (Object.keys(pm).length > 0) setPrices(pm);
     } catch {}
     setLoading(false);
-  }, [bistSymbols]);
+  }, []);
 
   useEffect(() => {
     fetchPrices();
     // Fiyatlar null ise 60 saniyede bir yeniden dene
     const id = setInterval(fetchPrices, 60_000);
     return () => clearInterval(id);
-  }, [fetchPrices, watchlist]);
+  }, [fetchPrices]);
 
   // WebSocket güncellemeleri
   useEffect(() => {
