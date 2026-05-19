@@ -63,26 +63,45 @@ async def fetch_newsapi(query: str = "borsa BIST hisse", language: str = "tr") -
         return []
 
 
+_RSS_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8",
+    "Cache-Control": "no-cache",
+}
+
+
 async def fetch_rss_feed(feed: dict) -> list[dict]:
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=15, headers=_RSS_HEADERS, follow_redirects=True) as client:
             resp = await client.get(feed["url"])
             resp.raise_for_status()
             text = resp.text
 
         parsed = feedparser.parse(text)
+        if not parsed.entries:
+            log.warning("rss_empty", feed=feed["name"])
+            return []
+
         articles = []
         for entry in parsed.entries[:20]:
             url = entry.get("link", "")
+            # summary hem HTML hem düz metin olabilir
+            raw_summary = entry.get("summary", "") or entry.get("description", "")
             articles.append({
-                "id": _url_hash(url),
+                "id": _url_hash(url or entry.get("title", "")),
                 "title": entry.get("title", ""),
                 "source": feed["name"],
                 "url": url,
                 "published_at": entry.get("published", ""),
-                "content": entry.get("summary", ""),
+                "content": raw_summary,
                 "importance_hint": feed["importance"],
             })
+        log.info("rss_fetched", feed=feed["name"], count=len(articles))
         return articles
     except Exception as e:
         log.error("rss_fetch_failed", feed=feed["name"], error=str(e))
