@@ -13,6 +13,7 @@ import structlog
 log = structlog.get_logger()
 
 BIST_SYMBOLS = {
+    # BIST 30 — büyük cap
     "ASELS": "ASELS.IS", "THYAO": "THYAO.IS", "GARAN": "GARAN.IS",
     "AKBNK": "AKBNK.IS", "ISCTR": "ISCTR.IS", "EREGL": "EREGL.IS",
     "KCHOL": "KCHOL.IS", "SAHOL": "SAHOL.IS", "SISE": "SISE.IS",
@@ -20,29 +21,77 @@ BIST_SYMBOLS = {
     "TCELL": "TCELL.IS", "ARCLK": "ARCLK.IS", "TOASO": "TOASO.IS",
     "FROTO": "FROTO.IS", "DOHOL": "DOHOL.IS", "TTKOM": "TTKOM.IS",
     "PGSUS": "PGSUS.IS", "VESTL": "VESTL.IS",
+    # Bankacılık
     "YKBNK": "YKBNK.IS", "VAKBN": "VAKBN.IS", "HALKB": "HALKB.IS",
-    "QNBFB": "QNBFB.IS",
-    "PETKM": "PETKM.IS", "AKSEN": "AKSEN.IS", "ODAS": "ODAS.IS",
-    "ENKAI": "ENKAI.IS", "TKFEN": "TKFEN.IS", "AEFES": "AEFES.IS",
-    "GUBRF": "GUBRF.IS", "BRSAN": "BRSAN.IS", "ISDMR": "ISDMR.IS",
+    "QNBFB": "QNBFB.IS", "SKBNK": "SKBNK.IS", "ALBRK": "ALBRK.IS",
+    "TSKB": "TSKB.IS", "FIBABANKA": "FIBABANKA.IS",
+    # Sigorta & Emeklilik
+    "TURSG": "TURSG.IS", "ANHYT": "ANHYT.IS", "ANSGR": "ANSGR.IS",
+    "AKGRT": "AKGRT.IS", "RAYSG": "RAYSG.IS", "GUSGF": "GUSGF.IS",
+    # Holding
+    "AGHOL": "AGHOL.IS", "GLYHO": "GLYHO.IS", "ALARK": "ALARK.IS",
+    "BERA": "BERA.IS", "POLHO": "POLHO.IS", "IHAAS": "IHAAS.IS",
+    "DENGE": "DENGE.IS",
+    # Enerji & Elektrik
+    "AKSEN": "AKSEN.IS", "ODAS": "ODAS.IS", "ZOREN": "ZOREN.IS",
+    "AYDEM": "AYDEM.IS", "AYEN": "AYEN.IS", "GWIND": "GWIND.IS",
+    "EUPWR": "EUPWR.IS", "SMART": "SMART.IS", "AKFYE": "AKFYE.IS",
+    "ORGE": "ORGE.IS", "KONTR": "KONTR.IS", "MAGEN": "MAGEN.IS",
+    "IPEKE": "IPEKE.IS", "ENKAI": "ENKAI.IS", "TKFEN": "TKFEN.IS",
+    "ULUSE": "ULUSE.IS",
+    # Petrokimya & Kimya
+    "PETKM": "PETKM.IS", "SASA": "SASA.IS", "AKSA": "AKSA.IS",
+    "ALKIM": "ALKIM.IS", "BAGFS": "BAGFS.IS", "GUBRF": "GUBRF.IS",
+    "EPLAS": "EPLAS.IS",
+    # Demir Çelik & Metal
+    "ISDMR": "ISDMR.IS", "BRSAN": "BRSAN.IS",
+    "KRDMA": "KRDMA.IS", "KRDMB": "KRDMB.IS", "KRDMD": "KRDMD.IS",
+    "CELHA": "CELHA.IS", "CEMAS": "CEMAS.IS", "CEMTS": "CEMTS.IS",
+    "PRKME": "PRKME.IS",
+    # Çimento & Cam & Seramik
+    "CIMSA": "CIMSA.IS", "NUHCM": "NUHCM.IS", "KCAER": "KCAER.IS",
+    "AKCNS": "AKCNS.IS", "BOLUC": "BOLUC.IS", "GOLTS": "GOLTS.IS",
+    "UNYEC": "UNYEC.IS", "ADANA": "ADANA.IS", "BUCIM": "BUCIM.IS",
+    "MRDIN": "MRDIN.IS", "KONYA": "KONYA.IS",
+    "TRKCM": "TRKCM.IS", "ANACM": "ANACM.IS", "USAK": "USAK.IS",
+    # GYO (Gayrimenkul Yatırım Ortaklığı)
     "EKGYO": "EKGYO.IS", "TRGYO": "TRGYO.IS", "ZRGYO": "ZRGYO.IS",
-    "GLYHO": "GLYHO.IS", "ALARK": "ALARK.IS",
-    "SOKM": "SOKM.IS", "MAVI": "MAVI.IS", "ADESE": "ADESE.IS",
-    "ULKER": "ULKER.IS", "CCOLA": "CCOLA.IS",
-    "TAVHL": "TAVHL.IS", "OTKAR": "OTKAR.IS",
-    "KOZAL": "KOZAL.IS", "KOZAA": "KOZAA.IS",
-    "LOGO": "LOGO.IS", "NETAS": "NETAS.IS", "MPARK": "MPARK.IS",
-    "SASA": "SASA.IS", "CIMSA": "CIMSA.IS", "KORDS": "KORDS.IS",
-    "BERA": "BERA.IS", "IHAAS": "IHAAS.IS",
-    "AVOD": "AVOD.IS", "KCAER": "KCAER.IS",
-    "SKBNK": "SKBNK.IS", "TURSG": "TURSG.IS", "HLGYO": "HLGYO.IS",
-    "DEVA": "DEVA.IS", "NUHCM": "NUHCM.IS", "GWIND": "GWIND.IS",
-    "KARSN": "KARSN.IS", "AGHOL": "AGHOL.IS", "INDES": "INDES.IS",
-    "TKNSA": "TKNSA.IS", "ULUSE": "ULUSE.IS", "POLHO": "POLHO.IS",
-    "ORGE": "ORGE.IS", "KONTR": "KONTR.IS", "SELEC": "SELEC.IS",
+    "HLGYO": "HLGYO.IS", "ISGYO": "ISGYO.IS", "SNGYO": "SNGYO.IS",
+    "ALGYO": "ALGYO.IS", "OZGYO": "OZGYO.IS", "KLGYO": "KLGYO.IS",
+    "VKGYO": "VKGYO.IS", "AGYO": "AGYO.IS", "MRGYO": "MRGYO.IS",
+    "RYGYO": "RYGYO.IS", "DZGYO": "DZGYO.IS",
+    # Otomotiv & Yan Sanayi
+    "OTKAR": "OTKAR.IS", "KARSN": "KARSN.IS", "TTRAK": "TTRAK.IS",
+    "ASUZU": "ASUZU.IS", "DOAS": "DOAS.IS", "JANTS": "JANTS.IS",
+    "PARSN": "PARSN.IS", "DITAS": "DITAS.IS", "BFREN": "BFREN.IS",
+    "GOODY": "GOODY.IS", "BRISA": "BRISA.IS",
+    # Havacılık & Ulaştırma & Lojistik
+    "TAVHL": "TAVHL.IS", "CLEBI": "CLEBI.IS", "RYSAS": "RYSAS.IS",
+    # Teknoloji & Bilişim
+    "LOGO": "LOGO.IS", "NETAS": "NETAS.IS", "INDES": "INDES.IS",
+    "TKNSA": "TKNSA.IS", "KAREL": "KAREL.IS", "ARDYZ": "ARDYZ.IS",
+    "PKART": "PKART.IS", "LINK": "LINK.IS", "ARENA": "ARENA.IS",
+    "ESCOM": "ESCOM.IS",
+    # Sağlık & İlaç
+    "MPARK": "MPARK.IS", "DEVA": "DEVA.IS", "SELEC": "SELEC.IS",
+    "ECILC": "ECILC.IS", "LKMNH": "LKMNH.IS", "MEDTR": "MEDTR.IS",
+    "ECZYT": "ECZYT.IS",
+    # Gıda & İçecek
+    "AEFES": "AEFES.IS", "CCOLA": "CCOLA.IS", "ULKER": "ULKER.IS",
+    "SOKM": "SOKM.IS", "ADESE": "ADESE.IS", "AVOD": "AVOD.IS",
+    "PNSUT": "PNSUT.IS", "TATGD": "TATGD.IS", "PENGD": "PENGD.IS",
+    "KENT": "KENT.IS", "TUKAS": "TUKAS.IS", "BANVT": "BANVT.IS",
+    "KNFRT": "KNFRT.IS",
+    # Perakende & Tekstil
+    "MAVI": "MAVI.IS", "LCWAL": "LCWAL.IS", "KORDS": "KORDS.IS",
+    "ARSAN": "ARSAN.IS", "DESA": "DESA.IS", "YATAS": "YATAS.IS",
+    # Madencilik & Değerli Maden
+    "KOZAL": "KOZAL.IS", "KOZAA": "KOZAA.IS", "GOLDAS": "GOLDAS.IS",
+    # Spor Kulüpleri
     "FENER": "FENER.IS", "BJKAS": "BJKAS.IS", "GSRAY": "GSRAY.IS",
     "TSPOR": "TSPOR.IS",
-    "BIST100": "XU100.IS", "BIST30": "XU030.IS",
+    # Endeksler
+    "BIST100": "XU100.IS", "BIST30": "XU030.IS", "BIST50": "XU050.IS",
 }
 
 COMMODITY_SYMBOLS = {
