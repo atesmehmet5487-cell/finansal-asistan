@@ -1,8 +1,13 @@
+"""
+Fiyat toplayıcı — Yahoo Finance Chart API (httpx ile direkt çağrı).
+yfinance kütüphanesi Railway/cloud ortamlarında bloklandığından
+API'ye doğrudan httpx ile bağlanıyoruz.
+"""
 import asyncio
-import yfinance as yf
-import pandas as pd
+import httpx
 from datetime import datetime
 from typing import Optional
+import pandas as pd
 import structlog
 
 log = structlog.get_logger()
@@ -42,105 +47,35 @@ COMMODITY_SYMBOLS = {
     "ETH": "ETH-USD",
 }
 
+_YF_CHART = "https://query2.finance.yahoo.com/v8/finance/chart/{symbol}"
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; financial-dashboard/1.0)",
+    "Accept": "application/json",
+}
 
-def _parse_ticker_df(display_name: str, ticker_df: pd.DataFrame) -> dict | None:
-    """Bir sembolün DataFrame'inden fiyat dict'i oluşturur."""
+
+def _parse_chart(symbol: str, data: dict) -> dict | None:
+    """Yahoo Finance Chart API yanıtını fiyat dict'ine çevirir."""
     try:
-        clean = ticker_df.dropna(subset=["Close"])
-        if clean.empty:
+        result = data.get("chart", {}).get("result") or []
+        if not result:
             return None
-        latest = clean.iloc[-1]
-        prev = clean.iloc[-2] if len(clean) >= 2 else None
+        r = result[0]
+        meta = r.get("meta", {})
 
-        price = float(latest["Close"])
-        if price == 0:
-            return None
+        # Önce meta'dan anlık fiyatı al
+        price = meta.get("regularMarketPrice") or meta.get("previousClose")
+        prev_close = meta.get("previousClose") or meta.get("chartPreviousClose")
 
-        prev_close = float(prev["Close"]) if prev is not None else None
-        change_pct = None
-        if prev_close and prev_close != 0:
-            change_pct = round((price - prev_close) / prev_close * 100, 4)
+        # Yoksa kapanış serisinden son değeri al
+        if not price:
+            closes = (r.get("indicators", {}).get("adjclose") or [{}])[0].get("adjclose") or []
+            closes = [c for c in closes if c is not None]
+            if closes:
+                price = closes[-1]
+                if len(closes) >= 2:
+                    prev_close = prev_close or closes[-2]
 
-        return {
-            "symbol": display_name,
-            "price": price,
-            "open": float(latest.get("Open") or 0) or None,
-            "high": float(latest.get("High") or 0) or None,
-            "low": float(latest.get("Low") or 0) or None,
-            "volume": int(latest.get("Volume") or 0) or None,
-            "change_pct": change_pct,
-            "market_cap": None,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-    except Exception as e:
-        log.warning("price_parse_failed", symbol=display_name, error=str(e))
-        return None
-
-
-def _fetch_all_sync() -> list[dict]:
-    """Tek batch yf.download() ile tüm sembolleri çeker."""
-    all_syms = {**BIST_SYMBOLS, **COMMODITY_SYMBOLS}
-    yf_list = list(all_syms.values())
-    display_map = {v: k for k, v in all_syms.items()}
-
-    results = []
-    # Batch boyutu 30 ile böl — çok büyük batch'ler bazen boş döner
-    chunk_size = 30
-    chunks = [yf_list[i:i+chunk_size] for i in range(0, len(yf_list), chunk_size)]
-
-    for chunk in chunks:
-        try:
-            df = yf.download(
-                chunk, period="5d", interval="1d",
-                group_by="ticker", auto_adjust=True,
-                progress=False, threads=False,
-            )
-            if df.empty:
-                log.warning("batch_empty", symbols=chunk[:3])
-                continue
-
-            for yf_sym in chunk:
-                display = display_map.get(yf_sym, yf_sym)
-                try:
-                    # Tek sembol varsa df doğrudan OHLCV, çoksa df[yf_sym]
-                    if len(chunk) == 1:
-                        ticker_df = df
-                    else:
-                        if yf_sym not in df.columns.get_level_values(0):
-                            continue
-                        ticker_df = df[yf_sym]
-                    parsed = _parse_ticker_df(display, ticker_df)
-                    if parsed:
-                        results.append(parsed)
-                except Exception as e:
-                    log.warning("ticker_extract_failed", symbol=display, error=str(e))
-        except Exception as e:
-            log.error("batch_download_failed", chunk_size=len(chunk), error=str(e))
-
-    log.info("prices_fetched", count=len(results), total=len(all_syms))
-    return results
-
-
-def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
-    """Tek sembol için senkron yfinance çağrısı (on-demand fallback)."""
-    try:
-        df = yf.download(yf_symbol, period="5d", interval="1d", progress=False, auto_adjust=True)
-        if not df.empty:
-            return _parse_ticker_df(symbol, df)
-
-        # download başarısız → fast_info dene
-        ticker = yf.Ticker(yf_symbol)
-        info = ticker.fast_info
-
-        def _get(attr):
-            try:
-                v = getattr(info, attr, None)
-                return v if v and str(v) not in ("None", "nan") else None
-            except Exception:
-                return None
-
-        price = _get("last_price")
-        prev_close = _get("previous_close")
         if not price:
             return None
 
@@ -151,24 +86,51 @@ def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
         return {
             "symbol": symbol,
             "price": float(price),
-            "open": float(_get("open") or 0) or None,
-            "high": float(_get("day_high") or 0) or None,
-            "low": float(_get("day_low") or 0) or None,
-            "volume": int(_get("three_month_average_volume") or 0) or None,
+            "open": float(meta.get("regularMarketOpen") or 0) or None,
+            "high": float(meta.get("regularMarketDayHigh") or 0) or None,
+            "low": float(meta.get("regularMarketDayLow") or 0) or None,
+            "volume": int(meta.get("regularMarketVolume") or 0) or None,
             "change_pct": change_pct,
-            "market_cap": float(_get("market_cap") or 0) or None,
+            "market_cap": float(meta.get("marketCap") or 0) or None,
             "timestamp": datetime.utcnow().isoformat(),
         }
+    except Exception as e:
+        log.warning("chart_parse_failed", symbol=symbol, error=str(e))
+        return None
+
+
+async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
+    """Tek sembol için asenkron fiyat çekimi."""
+    yf_sym = yf_symbol or symbol
+    url = _YF_CHART.format(symbol=yf_sym)
+    try:
+        async with httpx.AsyncClient(timeout=10, headers=_HEADERS) as client:
+            resp = await client.get(url, params={"interval": "1d", "range": "5d"})
+            resp.raise_for_status()
+            return _parse_chart(symbol, resp.json())
     except Exception as e:
         log.error("price_fetch_failed", symbol=symbol, error=str(e))
         return None
 
 
-async def fetch_price(symbol: str, yf_symbol: str | None = None) -> dict | None:
-    return await asyncio.to_thread(_fetch_price_sync, symbol, yf_symbol or symbol)
+async def fetch_all_prices() -> list[dict]:
+    """Tüm sembolleri paralel httpx çağrılarıyla çeker."""
+    all_syms = {**BIST_SYMBOLS, **COMMODITY_SYMBOLS}
+
+    async def _fetch_one(display: str, yf_sym: str) -> dict | None:
+        return await fetch_price(display, yf_sym)
+
+    tasks = [_fetch_one(d, y) for d, y in all_syms.items()]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    prices = [r for r in results if isinstance(r, dict) and r.get("price")]
+    log.info("prices_fetched", count=len(prices), total=len(all_syms))
+    return prices
 
 
+# OHLCV — teknik analiz için (yfinance kullanmaya devam)
 async def fetch_ohlcv(symbol: str, period: str = "1y", interval: str = "1d") -> Optional[pd.DataFrame]:
+    import yfinance as yf
+
     def _sync():
         try:
             ticker = yf.Ticker(symbol)
@@ -184,6 +146,13 @@ async def fetch_ohlcv(symbol: str, period: str = "1y", interval: str = "1d") -> 
     return await asyncio.to_thread(_sync)
 
 
-async def fetch_all_prices() -> list[dict]:
-    """Tüm sembolleri batch download ile çeker."""
-    return await asyncio.to_thread(_fetch_all_sync)
+def _fetch_price_sync(symbol: str, yf_symbol: str) -> dict | None:
+    """On-demand senkron çağrı (assets.py fallback için)."""
+    import asyncio as _asyncio
+    try:
+        loop = _asyncio.new_event_loop()
+        result = loop.run_until_complete(fetch_price(symbol, yf_symbol))
+        loop.close()
+        return result
+    except Exception:
+        return None
